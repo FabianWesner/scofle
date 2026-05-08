@@ -1,8 +1,8 @@
 {
     "$schema": "https://getcomposer.org/schema.json",
-    "name": "laravel/blank-react-starter-kit",
+    "name": "fabianwesner/scofle",
     "type": "project",
-    "description": "The skeleton application for the Laravel framework.",
+    "description": "Convert slide images into editable PowerPoint decks.",
     "keywords": [
         "laravel",
         "framework"

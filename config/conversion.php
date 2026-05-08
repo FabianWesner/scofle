@@ -15,5 +15,5 @@ return [
     'timeout' => (int) env('PPT_CONVERSION_TIMEOUT', 90),
     'max_inpaint_size' => (int) env('PPT_MAX_INPAINT_SIZE', 2048),
     'log_limit' => (int) env('PPT_JOB_LOG_LIMIT', 262_144),
-    'author' => 'image-to-powerpoint',
+    'author' => 'Scofle',
 ];

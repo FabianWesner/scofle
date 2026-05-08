@@ -65,8 +65,8 @@ def sanitize_metadata(output: Path) -> None:
 
     presentation = Presentation(str(output))
     props = presentation.core_properties
-    props.author = "image-to-powerpoint"
-    props.last_modified_by = "image-to-powerpoint"
+    props.author = "Scofle"
+    props.last_modified_by = "Scofle"
     props.title = ""
     props.subject = ""
     props.keywords = ""

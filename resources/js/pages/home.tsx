@@ -26,6 +26,27 @@ type UploadResponse = {
     uploadNonce: string;
 };
 
+const trustItems = [
+    ['Editable .pptx', 'Move text, shapes, and charts'],
+    ['Free to use', 'No account needed'],
+    ['Private by design', 'Session-only storage'],
+] as const;
+
+const workflowSteps = [
+    [
+        'Create',
+        'Make a slide image with ChatGPT, Nano Banana, or any design tool.',
+    ],
+    [
+        'Convert',
+        'Scofle reconstructs the image as an editable PowerPoint deck.',
+    ],
+    [
+        'Download',
+        'Keep the generated .pptx before the temporary session expires.',
+    ],
+] as const;
+
 export default function Home({
     uploadNonce,
     ttlHours,
@@ -156,19 +177,100 @@ export default function Home({
 
     return (
         <AppShell recentConversions={recentConversions}>
-            <Head title="Upload" />
-            <section className="min-h-[calc(100vh-5.5rem)]">
+            <Head title="Convert images to editable PowerPoint slides" />
+            <section className="grid min-h-[calc(100vh-9rem)] items-stretch gap-4 xl:grid-cols-[minmax(30rem,0.96fr)_minmax(34rem,1.04fr)]">
+                <div className="overflow-hidden rounded-lg border border-blue-900/10 bg-[#f8fbff] shadow-sm shadow-blue-900/5 dark:border-blue-100/10 dark:bg-zinc-900">
+                    <div className="grid gap-0 lg:grid-cols-[minmax(0,1fr)_17rem] xl:grid-cols-1 2xl:grid-cols-[minmax(0,1fr)_18rem]">
+                        <div className="p-5 sm:p-7">
+                            <div className="flex flex-wrap items-center gap-2">
+                                <span className="rounded-full bg-blue-700 px-3 py-1 text-xs font-semibold tracking-normal text-white uppercase dark:bg-blue-300 dark:text-blue-950">
+                                    AI slides, now editable
+                                </span>
+                                <span className="rounded-full bg-[#ffe1d8] px-3 py-1 text-xs font-semibold tracking-normal text-[#8c2f1f] uppercase dark:bg-[#3d1d18] dark:text-[#ffb29f]">
+                                    Free
+                                </span>
+                            </div>
+                            <h1 className="mt-5 max-w-3xl text-4xl leading-[1.05] font-semibold tracking-normal text-zinc-950 sm:text-5xl dark:text-zinc-50">
+                                Convert your images to editable PowerPoint
+                                slides.
+                            </h1>
+                            <p className="mt-5 max-w-2xl text-base leading-7 text-zinc-700 dark:text-zinc-300">
+                                Create amazing slides with AI tools like ChatGPT
+                                or Nano Banana, then turn those image-only
+                                results into editable PowerPoint decks.
+                            </p>
+                            <div className="mt-6 grid gap-2 sm:grid-cols-3">
+                                {trustItems.map(([label, value]) => (
+                                    <div
+                                        key={label}
+                                        className="rounded-md border border-blue-900/10 bg-white/75 px-3 py-2 shadow-xs dark:border-blue-100/10 dark:bg-zinc-950"
+                                    >
+                                        <p className="text-[11px] font-medium text-zinc-500">
+                                            {label}
+                                        </p>
+                                        <p className="mt-0.5 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                                            {value}
+                                        </p>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        <SlideWorkbenchPreview />
+                    </div>
+
+                    <div className="grid border-t border-blue-900/10 bg-white/65 lg:grid-cols-3 dark:border-blue-100/10 dark:bg-zinc-950/50">
+                        {workflowSteps.map(([label, copy], index) => (
+                            <div
+                                key={label}
+                                className="border-blue-900/10 p-4 lg:border-r lg:last:border-r-0 dark:border-blue-100/10"
+                            >
+                                <div className="flex items-center gap-2">
+                                    <span className="grid size-7 place-items-center rounded-md bg-amber-200 text-sm font-semibold text-amber-950 dark:bg-amber-900 dark:text-amber-100">
+                                        {index + 1}
+                                    </span>
+                                    <p className="text-sm font-semibold">
+                                        {label}
+                                    </p>
+                                </div>
+                                <p className="mt-2 text-sm leading-6 text-zinc-600 dark:text-zinc-300">
+                                    {copy}
+                                </p>
+                            </div>
+                        ))}
+                    </div>
+
+                    <div className="border-t border-sky-900/10 bg-sky-50 px-5 py-4 dark:border-sky-100/10 dark:bg-sky-950/30">
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                            <div>
+                                <h2 className="text-base font-semibold text-sky-950 dark:text-sky-100">
+                                    No data stays on our server.
+                                </h2>
+                                <p className="mt-1 text-sm leading-6 text-sky-900/80 dark:text-sky-100/80">
+                                    Temporary files are deleted after{' '}
+                                    {retention}; you can delete them sooner from
+                                    the session sidebar.
+                                </p>
+                            </div>
+                            <span className="inline-flex w-fit rounded-full border border-sky-200 bg-white px-3 py-1 text-xs font-semibold text-sky-800 dark:border-sky-900 dark:bg-zinc-950 dark:text-sky-100">
+                                Session-only
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
                 <form
                     onSubmit={submit}
-                    className="flex min-h-[32rem] flex-col rounded-lg border border-zinc-200 bg-white shadow-xs dark:border-zinc-800 dark:bg-zinc-900"
+                    className="flex min-h-[34rem] flex-col rounded-lg border border-blue-900/10 bg-white shadow-sm shadow-blue-900/5 dark:border-blue-100/10 dark:bg-zinc-900"
                 >
-                    <div className="border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
-                        <h1 className="text-lg font-semibold tracking-normal">
-                            Convert images to PowerPoint
-                        </h1>
+                    <div className="border-b border-blue-900/10 bg-blue-50/70 px-4 py-4 dark:border-blue-100/10 dark:bg-blue-950/20">
+                        <h2 className="text-lg font-semibold tracking-normal">
+                            Start with one or more images
+                        </h2>
                         <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">
                             PNG or JPEG. Up to 8 MB, up to 4096 px on the
-                            longest side.
+                            longest side. Batch uploads are processed one by
+                            one.
                         </p>
                     </div>
 
@@ -190,20 +292,21 @@ export default function Home({
                             htmlFor={uploadInputId}
                             onDragOver={(event) => event.preventDefault()}
                             onDrop={onDrop}
-                            className="flex min-h-48 cursor-pointer flex-col items-center justify-center gap-3 rounded-md border border-dashed border-zinc-300 bg-zinc-50 px-6 py-10 text-center transition hover:border-zinc-500 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-950/40 dark:hover:bg-zinc-900"
+                            className="flex min-h-72 cursor-pointer flex-col items-center justify-center gap-4 rounded-md border border-dashed border-blue-300 bg-[#f8fbff] px-6 py-10 text-center transition hover:border-blue-500 hover:bg-blue-50 dark:border-blue-800 dark:bg-zinc-950/50 dark:hover:bg-blue-950/20"
                         >
-                            <span className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-800 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100">
+                            <UploadMark />
+                            <span className="rounded-md border border-blue-200 bg-white px-3 py-2 text-sm font-medium text-blue-900 shadow-sm dark:border-blue-800 dark:bg-zinc-900 dark:text-blue-100">
                                 Drop images here or click to browse
                             </span>
                             <span className="max-w-md text-sm text-zinc-500 dark:text-zinc-400">
-                                Files are temporary. Download generated decks
-                                you want to keep.
+                                Great for image exports from ChatGPT, Nano
+                                Banana, screenshots, and design mockups.
                             </span>
                         </label>
 
                         {queuedImages.length > 0 && (
-                            <div className="rounded-md border border-zinc-200 bg-white text-left dark:border-zinc-800 dark:bg-zinc-900">
-                                <div className="border-b border-zinc-200 px-3 py-2 text-xs font-medium text-zinc-500 dark:border-zinc-800">
+                            <div className="rounded-md border border-blue-900/10 bg-white text-left dark:border-blue-100/10 dark:bg-zinc-900">
+                                <div className="border-b border-blue-900/10 px-3 py-2 text-xs font-medium text-blue-800 dark:border-blue-100/10 dark:text-blue-200">
                                     {queuedImages.length} queued
                                 </div>
                                 <ul className="max-h-52 overflow-y-auto">
@@ -235,7 +338,7 @@ export default function Home({
                                                     removeFile(queuedImage.id)
                                                 }
                                                 disabled={isUploading}
-                                                className="rounded-md border border-zinc-300 px-2 py-1 text-xs text-zinc-600 outline-none hover:bg-zinc-100 focus-visible:ring-2 focus-visible:ring-zinc-500 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                                                className="rounded-md border border-zinc-300 px-2 py-1 text-xs text-zinc-600 outline-none hover:bg-zinc-100 focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
                                             >
                                                 Remove
                                             </button>
@@ -252,15 +355,15 @@ export default function Home({
                         )}
                     </div>
 
-                    <div className="flex items-center justify-between gap-3 border-t border-zinc-200 px-4 py-3 dark:border-zinc-800">
-                        <p className="text-xs text-zinc-500">
+                    <div className="flex flex-col gap-3 border-t border-blue-900/10 px-4 py-4 sm:flex-row sm:items-center sm:justify-between dark:border-blue-100/10">
+                        <p className="text-xs leading-5 text-zinc-500">
                             This browser session only. Deleted after {retention}
                             . Download outputs you want to keep.
                         </p>
                         <button
                             type="submit"
                             disabled={isUploading}
-                            className="inline-flex h-9 items-center justify-center rounded-md bg-zinc-950 px-4 text-sm font-medium text-white outline-none hover:bg-zinc-800 focus-visible:ring-2 focus-visible:ring-zinc-500 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-zinc-50 dark:text-zinc-950 dark:hover:bg-zinc-200"
+                            className="inline-flex h-10 items-center justify-center rounded-md bg-blue-700 px-4 text-sm font-semibold text-white shadow-sm shadow-blue-900/20 outline-none hover:bg-blue-800 focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-blue-300 dark:text-blue-950 dark:hover:bg-blue-200"
                         >
                             {submitLabel}
                         </button>
@@ -268,6 +371,80 @@ export default function Home({
                 </form>
             </section>
         </AppShell>
+    );
+}
+
+function SlideWorkbenchPreview() {
+    return (
+        <div className="flex min-h-full items-center justify-center border-t border-blue-900/10 bg-blue-800 p-5 lg:border-t-0 lg:border-l xl:border-t 2xl:border-t-0 2xl:border-l dark:border-blue-100/10 dark:bg-blue-950">
+            <div className="w-full max-w-sm">
+                <div className="rounded-lg bg-white p-3 shadow-xl shadow-blue-950/20 dark:bg-zinc-900">
+                    <div className="mb-3 flex items-center justify-between">
+                        <div className="flex gap-1.5">
+                            <span className="size-2.5 rounded-full bg-[#ff8a65]" />
+                            <span className="size-2.5 rounded-full bg-amber-300" />
+                            <span className="size-2.5 rounded-full bg-blue-400" />
+                        </div>
+                        <span className="rounded-full bg-sky-50 px-2 py-0.5 text-[10px] font-semibold text-sky-800 dark:bg-sky-950 dark:text-sky-100">
+                            Editable .pptx
+                        </span>
+                    </div>
+                    <div className="grid gap-2">
+                        <div className="rounded-md border border-zinc-200 bg-[#fff8ee] p-3 dark:border-zinc-800 dark:bg-zinc-950">
+                            <div className="mb-3 h-3 w-28 rounded-full bg-zinc-900 dark:bg-zinc-100" />
+                            <div className="grid grid-cols-[1fr_4rem] gap-3">
+                                <div className="space-y-2">
+                                    <div className="h-2 rounded-full bg-blue-600" />
+                                    <div className="h-2 w-4/5 rounded-full bg-amber-300" />
+                                    <div className="h-2 w-2/3 rounded-full bg-[#ff8a65]" />
+                                </div>
+                                <div className="grid grid-cols-2 gap-1">
+                                    <span className="rounded bg-blue-100" />
+                                    <span className="rounded bg-amber-100" />
+                                    <span className="rounded bg-[#ffe1d8]" />
+                                    <span className="rounded bg-sky-100" />
+                                </div>
+                            </div>
+                        </div>
+                        <div className="flex items-center justify-between rounded-md border border-dashed border-blue-300 bg-blue-50 px-3 py-2 dark:border-blue-800 dark:bg-blue-950/50">
+                            <span className="text-xs font-medium text-blue-900 dark:text-blue-100">
+                                Image in
+                            </span>
+                            <span className="text-xs font-medium text-blue-900 dark:text-blue-100">
+                                Shapes out
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                <div className="mt-3 grid grid-cols-3 gap-2 text-center text-[10px] font-semibold text-blue-50">
+                    <span className="rounded-full bg-white/15 px-2 py-1">
+                        Text
+                    </span>
+                    <span className="rounded-full bg-white/15 px-2 py-1">
+                        Charts
+                    </span>
+                    <span className="rounded-full bg-white/15 px-2 py-1">
+                        Layout
+                    </span>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function UploadMark() {
+    return (
+        <span className="grid size-14 place-items-center rounded-full bg-blue-700 text-white shadow-lg shadow-blue-900/20 dark:bg-blue-300 dark:text-blue-950">
+            <svg
+                aria-hidden="true"
+                viewBox="0 0 24 24"
+                className="size-7 fill-none stroke-current stroke-2"
+            >
+                <path d="M12 16V5" strokeLinecap="round" />
+                <path d="m7 10 5-5 5 5" strokeLinecap="round" />
+                <path d="M5 19h14" strokeLinecap="round" />
+            </svg>
+        </span>
     );
 }
 
@@ -367,13 +544,13 @@ function QueuedFileStatusIcon({ status }: Readonly<{ status: QueueStatus }>) {
 function queuedStatusClassName(status: QueueStatus) {
     switch (status) {
         case 'uploading':
-            return 'animate-pulse border-zinc-700 bg-zinc-700 dark:border-zinc-300 dark:bg-zinc-300';
+            return 'animate-pulse border-blue-700 bg-blue-700 dark:border-blue-300 dark:bg-blue-300';
         case 'done':
-            return 'border-zinc-950 bg-zinc-950 dark:border-zinc-50 dark:bg-zinc-50';
+            return 'border-sky-700 bg-sky-700 dark:border-sky-300 dark:bg-sky-300';
         case 'failed':
             return 'border-red-500 bg-white dark:bg-zinc-900';
         default:
-            return 'border-zinc-400 bg-white dark:bg-zinc-900';
+            return 'border-amber-500 bg-amber-100 dark:bg-amber-950';
     }
 }
 

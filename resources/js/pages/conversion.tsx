@@ -64,7 +64,7 @@ export default function Conversion({
         <AppShell recentConversions={recentConversions}>
             <Head title={`Conversion ${conversion.uuid.slice(0, 8)}`} />
             <section className="flex min-h-[calc(100vh-5.5rem)] flex-col gap-3">
-                <div className="rounded-lg border border-zinc-200 bg-white shadow-xs dark:border-zinc-800 dark:bg-zinc-900">
+                <div className="rounded-lg border border-blue-900/10 bg-white shadow-sm shadow-blue-900/5 dark:border-blue-100/10 dark:bg-zinc-900">
                     <div className="flex flex-col justify-between gap-3 px-4 py-3 xl:flex-row xl:items-center">
                         <div className="flex min-w-0 items-center gap-3">
                             <StatusBadge
@@ -85,7 +85,7 @@ export default function Conversion({
                                 aria-disabled={!selectedAttempt.downloads.pptx}
                                 className={`inline-flex h-9 items-center rounded-md px-3 text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-zinc-500 ${
                                     selectedAttempt.downloads.pptx
-                                        ? 'bg-zinc-950 text-white hover:bg-zinc-800 dark:bg-zinc-50 dark:text-zinc-950 dark:hover:bg-zinc-200'
+                                        ? 'bg-blue-700 text-white hover:bg-blue-800 dark:bg-blue-300 dark:text-blue-950 dark:hover:bg-blue-200'
                                         : 'pointer-events-none bg-zinc-200 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-500'
                                 }`}
                             >
@@ -124,8 +124,8 @@ export default function Conversion({
                             </button>
                         </div>
                     </div>
-                    <dl className="grid gap-px border-t border-zinc-200 bg-zinc-200 text-xs sm:grid-cols-3 dark:border-zinc-800 dark:bg-zinc-800">
-                        <div className="bg-zinc-50 px-4 py-2 dark:bg-zinc-950/40">
+                    <dl className="grid gap-px border-t border-blue-900/10 bg-blue-900/10 text-xs sm:grid-cols-3 dark:border-blue-100/10 dark:bg-blue-100/10">
+                        <div className="bg-blue-50/70 px-4 py-2 dark:bg-blue-950/20">
                             <dt className="font-medium text-zinc-500">
                                 Access
                             </dt>
@@ -133,7 +133,7 @@ export default function Conversion({
                                 This browser session only
                             </dd>
                         </div>
-                        <div className="bg-zinc-50 px-4 py-2 dark:bg-zinc-950/40">
+                        <div className="bg-blue-50/70 px-4 py-2 dark:bg-blue-950/20">
                             <dt className="font-medium text-zinc-500">
                                 Temporary retention
                             </dt>
@@ -141,7 +141,7 @@ export default function Conversion({
                                 Deleted after {retention}
                             </dd>
                         </div>
-                        <div className="bg-zinc-50 px-4 py-2 dark:bg-zinc-950/40">
+                        <div className="bg-blue-50/70 px-4 py-2 dark:bg-blue-950/20">
                             <dt className="font-medium text-zinc-500">
                                 Stored output
                             </dt>
@@ -159,8 +159,8 @@ export default function Conversion({
                 )}
 
                 <div className="grid flex-1 items-start gap-3 xl:grid-cols-[minmax(22rem,0.68fr)_minmax(40rem,1.32fr)] 2xl:grid-cols-[minmax(24rem,0.62fr)_minmax(48rem,1.38fr)]">
-                    <section className="flex min-h-0 flex-col rounded-lg border border-zinc-200 bg-white shadow-xs dark:border-zinc-800 dark:bg-zinc-900">
-                        <div className="flex items-center justify-between gap-3 border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
+                    <section className="flex min-h-0 flex-col rounded-lg border border-blue-900/10 bg-white shadow-sm shadow-blue-900/5 dark:border-blue-100/10 dark:bg-zinc-900">
+                        <div className="flex items-center justify-between gap-3 border-b border-blue-900/10 px-4 py-3 dark:border-blue-100/10">
                             <h2 className="text-sm font-semibold">
                                 Input image
                             </h2>
@@ -219,8 +219,8 @@ export default function Conversion({
                         </div>
                     </section>
 
-                    <section className="flex min-h-[34rem] flex-col rounded-lg border border-zinc-200 bg-white shadow-xs xl:self-stretch dark:border-zinc-800 dark:bg-zinc-900">
-                        <div className="flex flex-col justify-between gap-3 border-b border-zinc-200 px-4 py-3 sm:flex-row sm:items-center dark:border-zinc-800">
+                    <section className="flex min-h-[34rem] flex-col rounded-lg border border-blue-900/10 bg-white shadow-sm shadow-blue-900/5 xl:self-stretch dark:border-blue-100/10 dark:bg-zinc-900">
+                        <div className="flex flex-col justify-between gap-3 border-b border-blue-900/10 px-4 py-3 sm:flex-row sm:items-center dark:border-blue-100/10">
                             <div>
                                 <h2 className="text-sm font-semibold">
                                     Output preview
@@ -359,13 +359,13 @@ function statusBadgeClassName(
 ) {
     switch (status) {
         case 'ready':
-            return 'bg-zinc-950 text-white dark:bg-zinc-50 dark:text-zinc-950';
+            return 'bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-100';
         case 'failed':
             return 'bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-200';
         case 'partial':
             return 'bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-200';
         default:
-            return 'bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200';
+            return 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-100';
     }
 }
 

@@ -1,3 +1,46 @@
+<project-guidelines>
+# Scofle Project Notes
+
+Scofle converts uploaded PNG/JPEG slide images into editable PowerPoint decks. The core promise is: "Convert your images to editable PowerPoint slides." Users may create slide images with AI tools such as ChatGPT or Nano Banana, upload them to Scofle, and download editable `.pptx` output.
+
+## Privacy and Data Lifecycle
+
+- The product is browser-session based. There are no accounts, public project URLs, sharing links, or permanent project records.
+- Conversion URLs are navigation aids only. They must not grant access without the matching session cookie.
+- Uploaded files and generated outputs live only in temporary working storage under `storage/app/private/tmp/sessions`.
+- Keep retention as short as practical for UX. The current default is `CONVERSION_TTL_HOURS=1`.
+- Users must be able to explicitly delete conversion files. Keep individual delete and delete-all flows working.
+- Do not reintroduce project/share structures, copy-link UI, public tokens, or permanent persisted uploads.
+
+## Local Development
+
+- Local development does not need HTTPS. Herd serves the app at the project URL; use Laravel Boost `get_absolute_url` before sharing a local URL.
+- For local HTTP, set `IMAGE_SESSION_COOKIE_SECURE=false` in `.env`.
+- The app uses Laravel 13, PHP 8.4, Inertia v3, React 19, Tailwind CSS v4, and Wayfinder-generated routes.
+- Use Wayfinder imports from `@/routes` or `@/actions` instead of hardcoded app URLs in React.
+- The UI should feel like a useful work tool: polished, friendly, direct, and not marketing-only. The upload/conversion workflow must stay visible on the first screen.
+
+## Verification Expectations
+
+- Keep SonarCloud clean for `FabianWesner_scofle` on `main`: zero bugs, vulnerabilities, code smells, and hotspots; quality gate OK.
+- Before pushing meaningful changes, run the relevant subset of:
+  - `vendor/bin/pint --dirty --format agent` after PHP changes.
+  - `npm run format:check`
+  - `npm run lint:check`
+  - `npm run types:check`
+  - `npm run build`
+  - `php artisan test --compact`
+- Use the browser against the Herd URL for UI changes. Verify the upload/drop zone and check browser console warnings.
+- Example verification images may exist at `/Users/fabianwesner/Workspace/image-to-powerpoint/examples`.
+
+## Deployment
+
+- Git remote: `git@github.com:FabianWesner/scofle.git`.
+- Production URL: `https://www.scofle.com`.
+- Deploy via Laravel Forge using the `FORGE_TOKEN` from the local `.env`. Never print or commit this token.
+- Trigger deploys through the Forge API after pushing `main`, then verify the production page in Chrome/browser automation.
+</project-guidelines>
+
 <laravel-boost-guidelines>
 === foundation rules ===
 
