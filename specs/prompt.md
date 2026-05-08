@@ -14,26 +14,26 @@ Read first:
 4. composer.json, package.json, phpunit.xml, vite.config.ts
 
 Objective:
-Implement the local MVP described by specs/specification.md, then satisfy specs/checklist.md's Done Definition. Exclude deployment to a remote server. If docs conflict, specs/specification.md section 2, Canonical decisions, wins.
+Implement specs/specification.md M0-M4 and satisfy specs/checklist.md's Done Definition. Exclude remote deployment. If docs conflict, specs/specification.md section 2 wins.
 
 Scope:
 - Implement M0-M4 only.
-- Backend: Laravel models, migrations, factories, routes, controllers, validation, private storage, sessions, upload nonce, signed downloads, queue job, lifecycle reaper, rate limits, security headers, telemetry-free logging.
-- Conversion: Python venv, pinned px-image2pptx [ocr,inpaint], Pillow normalisation, Symfony Process argv only, warm-models command, LibreOffice PDF render, heartbeat/stale-job handling, failure taxonomy.
-- Frontend: Inertia React pages, Wayfinder route helpers, Tailwind/Shadcn UI, upload, preview, polling, regenerate, replace-image, version switcher, partial PDF state, copy-link, delete flow.
-- Tests: Pest unit, feature, and architecture tests for deterministic/server behavior.
+- Backend: models, migrations, factories, routes, controllers, validation, private storage, sessions, upload nonce, signed downloads, queue job, reaper, rate limits, headers, logging.
+- Conversion: Python venv, pinned px-image2pptx [ocr,inpaint], Pillow normalisation, Symfony Process argv, warm-models, LibreOffice PDF, heartbeat/stale jobs, failure taxonomy.
+- Frontend: Inertia React, Wayfinder, Tailwind/Shadcn UI, upload, preview, polling, regenerate, replace-image, versions, partial PDF state, copy-link, delete.
+- Tests/quality: Pest unit/feature/arch tests, PHPMD, Larastan/PHPStan.
 - Browser/UX validation: execute specs/testplan.md browser cases in Chrome using Playwright non-scripted interaction. Do not create scripted browser/e2e tests.
 
 Hard rules:
 - Use Laravel Boost docs search before Laravel/Inertia code changes.
-- Use existing project conventions. Do not add dependencies without pausing and explaining why.
+- Use existing conventions. Do not add dependencies without pausing, except this prompt authorizes dev deps `phpmd/phpmd` and `larastan/larastan` if absent.
 - For PHP edits, run vendor/bin/pint --dirty --format agent.
-- Do not add accounts, login, email/share-to-X, slide editor, user-supplied pptx import, local LLM, third-party telemetry, i18n, or remote deployment.
-- Do not add tests/Browser, Playwright Test specs, Cypress specs, or any scripted e2e suite.
+- After PHP-heavy checkpoints, run PHPMD and Larastan (`vendor/bin/phpmd app text cleancode,codesize,design,naming,unusedcode`; `vendor/bin/phpstan analyse`) and fix meaningful findings.
+- Do not add accounts, login, email/share-to-X, slide editor, pptx import, local LLM, telemetry, i18n, remote deployment, tests/Browser, Playwright Test, Cypress, or scripted e2e.
 - Preserve unrelated user changes.
 
 Checkpoint loop:
-Work through these checkpoints, updating specs/checklist.md only after verification:
+Update specs/checklist.md only after verification. Commit after each meaningful verified checkpoint; do not commit unrelated or knowingly broken work.
 1. Data model/private storage/session/nonce.
 2. Upload validation and home/project shell.
 3. Python bridge, queue conversion, normalisation, warm-models, heartbeat, failures.
@@ -50,6 +50,8 @@ npm run lint:check
 npm run format:check
 npm run types:check
 php artisan test
+vendor/bin/phpmd app text cleancode,codesize,design,naming,unusedcode
+vendor/bin/phpstan analyse
 php artisan schedule:list
 php artisan ppt:warm-models --check-only
 bin/grep-no-gemini.sh
@@ -57,7 +59,9 @@ bin/grep-no-gemini.sh
 Stop only when:
 - specs/checklist.md Done Definition is satisfied for the local MVP.
 - All MVP unit/feature/architecture tests pass.
+- PHPMD and Larastan pass, or remaining findings are documented as intentional with narrow suppressions.
 - Browser/UX MVP cases were executed in Chrome via Playwright non-scripted interaction and results are recorded.
+- Work is committed in focused checkpoint commits, with a final clean working tree except documented user-owned changes.
 - Post-MVP/deploy/best-effort cases are skipped or documented as allowed by specs/testplan.md.
 - Final answer lists changed files, verification results, and remaining non-blocking deploy/manual notes.
 
