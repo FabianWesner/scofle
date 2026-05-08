@@ -142,7 +142,7 @@ export function AppShell({ recentConversions, children }: AppShellProps) {
                             >
                                 Fabian Wesner
                             </a>
-                            .
+                            {'.'}
                         </p>
                         <div className="flex flex-wrap gap-2">
                             <a
