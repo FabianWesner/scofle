@@ -3,7 +3,7 @@
 namespace App\Services;
 
 use App\AttemptStatus;
-use App\Jobs\ConvertAttemptJob;
+use App\Jobs\ProcessConversionQueueJob;
 use App\Models\Attempt;
 use App\Models\Conversion;
 use App\Models\Session;
@@ -22,37 +22,58 @@ class ConversionLifecycle
         //
     }
 
-    public function createFromUpload(Session $session, UploadedFile $file, string $nonce): Conversion
+    /**
+     * @param  array<int, UploadedFile>  $files
+     * @return array<int, Conversion>
+     */
+    public function createFromUploads(Session $session, array $files, string $nonce): array
     {
-        $this->assertCanStartConversion($session);
+        $this->assertCanQueueAttempts(count($files));
+
+        $validatedFiles = collect($files)
+            ->map(fn (UploadedFile $file, int $index): array => [
+                'file' => $file,
+                'validated' => $this->validator->validate($file, "images.{$index}"),
+            ])
+            ->all();
+
         $this->nonces->consume($nonce);
-        $validated = $this->validator->validate($file);
 
-        [$conversion, $attempt] = DB::transaction(function () use ($session, $file, $validated): array {
-            $this->evictOldSessionConversions($session, reserveSlot: 1);
+        $conversions = DB::transaction(function () use ($session, $validatedFiles): array {
+            $this->evictOldSessionConversions($session, reserveSlot: count($validatedFiles));
 
-            $conversion = Conversion::create([
-                'uuid' => (string) Str::uuid(),
-                'session_id' => $session->id,
-                'total_bytes' => 0,
-            ]);
+            return collect($validatedFiles)
+                ->map(function (array $validatedFile) use ($session): Conversion {
+                    /** @var UploadedFile $file */
+                    $file = $validatedFile['file'];
 
-            $attempt = $this->createAttempt($conversion, $file->getClientOriginalName(), $validated);
-            $this->storage->storeInput($attempt, $file);
-            $this->storage->refreshConversionBytes($conversion);
+                    /** @var array{mime: string, ext: string, bytes: int, pixels: int} $validated */
+                    $validated = $validatedFile['validated'];
 
-            return [$conversion, $attempt];
+                    $conversion = Conversion::create([
+                        'uuid' => (string) Str::uuid(),
+                        'session_id' => $session->id,
+                        'total_bytes' => 0,
+                    ]);
+
+                    $attempt = $this->createAttempt($conversion, $file->getClientOriginalName(), $validated);
+                    $this->storage->storeInput($attempt, $file);
+                    $this->storage->refreshConversionBytes($conversion);
+
+                    return $conversion;
+                })
+                ->all();
         });
 
-        ConvertAttemptJob::dispatch($attempt->id);
+        ProcessConversionQueueJob::dispatch();
 
-        return $conversion;
+        return $conversions;
     }
 
     public function regenerate(Conversion $conversion, Session $session): Attempt
     {
         $this->assertOwns($conversion, $session);
-        $this->assertCanStartConversion($session);
+        $this->assertCanQueueAttempts(1);
 
         $source = $conversion->attempts()
             ->where('status', '!=', AttemptStatus::Failed->value)
@@ -82,7 +103,7 @@ class ConversionLifecycle
             return $attempt;
         });
 
-        ConvertAttemptJob::dispatch($attempt->id);
+        ProcessConversionQueueJob::dispatch();
 
         return $attempt;
     }
@@ -91,6 +112,18 @@ class ConversionLifecycle
     {
         $this->storage->deleteConversion($conversion);
         $conversion->delete();
+    }
+
+    public function deleteAllForSession(Session $session): void
+    {
+        $session->conversions()
+            ->oldest('created_at')
+            ->get()
+            ->each(function (Conversion $conversion): void {
+                $this->delete($conversion);
+            });
+
+        $this->storage->deleteSessionConversions($session);
     }
 
     public function assertOwns(Conversion $conversion, Session $session): void
@@ -120,16 +153,17 @@ class ConversionLifecycle
         return ((int) $conversion->attempts()->max('n')) + 1;
     }
 
-    private function assertCanStartConversion(Session $session): void
+    private function assertCanQueueAttempts(int $count): void
     {
-        if (Attempt::query()
-            ->whereIn('status', [AttemptStatus::Pending->value, AttemptStatus::Running->value])
-            ->whereHas('conversion', fn ($query) => $query->where('session_id', $session->id))
-            ->exists()) {
-            throw new HttpResponseException(response('You already have a conversion in progress.', 429));
+        if ($count < 1) {
+            throw new HttpResponseException(response('Choose one or more PNG or JPEG images.', 422));
         }
 
-        if (Attempt::query()->where('status', AttemptStatus::Pending->value)->count() >= config('conversion.queue_depth_cap')) {
+        $inflightCount = Attempt::query()
+            ->whereIn('status', [AttemptStatus::Pending->value, AttemptStatus::Running->value])
+            ->count();
+
+        if ($inflightCount + $count > config('conversion.queue_depth_cap')) {
             throw new HttpResponseException(response('Service is busy, try again in a moment.', 503));
         }
     }

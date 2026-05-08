@@ -4,11 +4,11 @@
 
 ## 1. Product Summary
 
-A local web app converts an uploaded PNG or JPEG into a PowerPoint deck and a PDF rendered from that deck. There is no login and no public sharing. A browser session owns its temporary conversions through an `image2pptx_session` cookie. URLs are navigation aids only; they are never access tokens.
+A local web app converts one or more uploaded PNG or JPEG images into PowerPoint decks. Optional PDF preview/rendering can be enabled, but it is disabled by default in local development to avoid repeated LibreOffice/macOS crash dialogs. There is no login and no public sharing. A browser session owns its temporary conversions through an `image2pptx_session` cookie. URLs are navigation aids only; they are never access tokens.
 
-The app stores files only as temporary working copies outside the web root while conversion, preview, and download are needed. Users must download the `.pptx` or `.pdf` to keep them. Temporary files are deleted by the user or by a reaper. The UI must not imply permanent persistence.
+The app stores files only as temporary working copies outside the web root while conversion, preview, and download are needed. Users must download the `.pptx` and any optional `.pdf` to keep them. Temporary files are deleted by the user or by a reaper. The UI must not imply permanent persistence.
 
-The conversion uses the open-source Python package `px-image2pptx` with OCR and inpainting extras only. PDF rendering uses LibreOffice headless against the generated `.pptx`, so preview and download output come from the same source artifact.
+The conversion uses the open-source Python package `px-image2pptx` with OCR and inpainting extras only. When PDF rendering is enabled, LibreOffice headless renders against the generated `.pptx`, so preview and download output come from the same source artifact.
 
 ## 2. Canonical Decisions
 
@@ -18,22 +18,25 @@ The conversion uses the open-source Python package `px-image2pptx` with OCR and 
 | Share links | No copy-link button, no public slug access, no email/share actions, no "anyone with link" copy. |
 | Main entity | `Conversion`, not Project. A Conversion is a temporary session-owned workspace for one source image. |
 | Attempts | A Conversion owns append-only Attempts (`a1`, `a2`, ...). Regenerate creates a new Attempt from the same source image. |
-| New image | Uploading another image creates another Conversion in the same session. It is not a child/version of the previous Conversion. |
+| New images | Uploading one or more images creates one Conversion per image in the same session. They are not children/versions of another Conversion. |
+| Queueing | Multiple uploaded images are queued and processed one Attempt at a time in first-in first-out order. |
 | Upload response | `POST /uploads` returns Inertia redirect (302) to `GET /conversions/{uuid}`. |
 | Regenerate response | `POST /conversions/{uuid}/regenerate` returns Inertia redirect (302) to the same conversion page. |
 | Delete response | `DELETE /conversions/{uuid}` returns Inertia redirect (302) to `GET /`. |
+| Delete-all response | `DELETE /conversions` deletes all Conversions owned by the current session and returns Inertia redirect (302) to `GET /`. |
 | Download response | `GET /downloads/{attempt_id}/{kind}` returns 200 only when the signed URL is valid and the current session owns the Attempt's Conversion. |
-| Inline PDF preview | `GET /downloads/{attempt_id}/pdf?inline=1` adds `Content-Disposition: inline` and `Content-Security-Policy: sandbox`. |
+| Inline PDF preview | Optional. When `CONVERSION_RENDER_PDF=true`, `GET /downloads/{attempt_id}/pdf?inline=1` adds `Content-Disposition: inline` and `Content-Security-Policy: sandbox`. |
 | Attempt status enum | Strict four persisted values: `pending`, `running`, `ready`, `failed`. |
 | Derived UI label `partial` | `status='ready' AND failure_code='pdf_render' AND pdf_bytes IS NULL`. Not an enum value, not a column. |
 | Storage filename | `attempts/{n}/input.{ext}` where `{ext}` is canonical from sniffed MIME (`png` or `jpg`). No `source.{ext}`. |
 | Storage root | `storage/app/private/tmp/sessions/{session_id}/conversions/{conversion_uuid}/`. |
 | Warm-up command | `php artisan ppt:warm-models`. |
 | Reap command | `php artisan conversions:reap`. |
+| Reap schedule | Every 10 minutes with overlap protection. |
 | Static-grep gate | `bin/grep-no-gemini.sh`. |
 | Cookie name | `image2pptx_session` (HttpOnly, SameSite=Lax, long max-age). Secure defaults to true, but local HTTP development may set `IMAGE_SESSION_COOKIE_SECURE=false`. |
 | TTL anchor | `conversions.created_at`. |
-| TTL config key | `config('conversion.ttl_hours')`, env `CONVERSION_TTL_HOURS`, default `24`. |
+| TTL config key | `config('conversion.ttl_hours')`, env `CONVERSION_TTL_HOURS`, default `1`. |
 | Disk ceiling config | `config('conversion.tmp_bytes_cap')`, env `CONVERSION_TMP_BYTES_CAP`, default `5368709120` (5 GiB). |
 | Upload byte cap | `config('upload.max_bytes')`, env `UPLOAD_MAX_BYTES`, default `10485760` (10 MiB). |
 | Pixel cap | Long edge `<= 4096`, total pixels `<= 16,777,216`. |
@@ -53,18 +56,18 @@ The conversion uses the open-source Python package `px-image2pptx` with OCR and 
 
 ## 4. User Stories
 
-US-1. As a user, I upload an image and within about 30 seconds see a preview of the generated deck.
-US-2. As a user, I download the `.pptx` and `.pdf`.
+US-1. As a user, I upload one or more images and see each one queued for conversion.
+US-2. As a user, I download the generated `.pptx`.
 US-3. As a user, I click "Regenerate" to produce another Attempt against the same image.
-US-4. As a user, I upload another image and it appears as a separate temporary Conversion in my current session.
+US-4. As a user, I drag multiple images into the upload area and each appears as a separate temporary Conversion in my current session.
 US-5. As a user, I switch between Attempts of the same Conversion and download from any ready Attempt.
 US-6. As a user, I see recent temporary Conversions in the sidebar for this browser session.
-US-7. As a user, I delete a Conversion and its files are removed immediately.
+US-7. As a user, I delete one Conversion, or all temporary Conversions in my session, and their files are removed immediately.
 US-8. As a user, when conversion fails, I see a clear failure message and can regenerate.
-US-9. As a user, when LibreOffice cannot render the PDF, the `.pptx` remains downloadable and PDF preview is marked unavailable.
+US-9. As a user, when PDF preview is disabled or LibreOffice cannot render the PDF, the `.pptx` remains downloadable and PDF preview is marked unavailable.
 US-10. As a user, I understand that files are temporary and must be downloaded to keep.
 
-Out of scope: public sharing, project URLs as access, copy-link, login, editing slides, project rename, multi-image batch, slide thumbnail strip, local or remote LLM integration, user-supplied `.pptx` import, i18n.
+Out of scope: public sharing, project URLs as access, copy-link, login, editing slides, project rename, merging multiple images into one deck, slide thumbnail strip, local or remote LLM integration, user-supplied `.pptx` import, i18n.
 
 ## 5. Architecture
 
@@ -73,29 +76,27 @@ Out of scope: public sharing, project URLs as access, copy-link, login, editing 
 - Laravel 13, PHP 8.4
 - Inertia v3, React 19, Tailwind v4
 - SQLite index for sessions, conversions, attempts, upload nonces, and queue jobs
-- Laravel database queue, one warm local worker
+- Laravel background queue in local development; database queue can be used with a worker
 - Python 3.9 to 3.13 pinned in `.python-version`
 - `px-image2pptx[ocr,inpaint]` pinned to a commit; never install AI/all extras
-- LibreOffice headless (`soffice`) as a hard local dependency
+- LibreOffice headless (`soffice`) as an optional PDF preview dependency
 - No public storage symlink for conversion artifacts
 
 ### 5.2 Process Model
 
 ```text
-Browser  --POST /uploads-->  Laravel  --enqueue-->  jobs table
-                                                         |
-                                             queue worker
-                                                         |
+Browser  --POST /uploads-->  Laravel  --background queue-->  PHP process
+                                                               |
                                              Symfony Process argv
-                                                         |
+                                                               |
                        python bridge -> px-image2pptx -> output.pptx
-                                                         |
-                                    soffice renders output.pdf
-                                                         |
+                                                               |
+                        optional soffice PDF render -> output.pdf
+                                                               |
 Browser <--Inertia poll-- Laravel <--read-- attempts/conversions
 ```
 
-Conversion never blocks an HTTP worker. The upload request redirects to `/conversions/{uuid}`. The page polls every two seconds while the active Attempt is `pending` or `running` and stops after three minutes with a stable "still working" message.
+Conversion never blocks an HTTP worker. The browser accepts multiple selected files and may post them as one batch or as one-image JSON uploads with rotating nonces to stay under local web-server body limits. The backend creates one Conversion per uploaded image, redirects to the first created `/conversions/{uuid}`, and dispatches a queue processor. The processor drains pending Attempts one at a time in first-in first-out order. Pages poll every two seconds while the active Attempt is `pending` or `running` and stop after three minutes with a stable "still working" message.
 
 Hard wall-clock timeout: 90 seconds for bridge and PDF render. Timeout marks the Attempt failed with `bridge_timeout`.
 
@@ -107,14 +108,14 @@ storage/app/private/tmp/sessions/{session_id}/conversions/{conversion_uuid}/
         1/
             input.{png,jpg}
             output.pptx
-            output.pdf
+            output.pdf          -- only when PDF rendering is enabled
             job.log
             meta.json
         2/
             ...
 ```
 
-Files are private temporary working copies. They are deleted when the user deletes the Conversion, when the TTL expires, or when the disk cap requires eviction. Downloads go through controller routes only.
+Files are private temporary working copies. They are deleted when the user deletes one Conversion, when the user deletes all Conversions in the current session, when the TTL expires, or when the disk cap requires eviction. Downloads go through controller routes only.
 
 ### 5.4 Data Model
 
@@ -159,8 +160,10 @@ Retention limits:
 
 - Max Attempts per Conversion: `config('conversion.max_attempts')`, default 5.
 - Max Conversions per Session: `config('conversion.max_per_session')`, default 20.
+- Max images per upload batch: `config('conversion.max_batch_uploads')`, default 20.
 - Global temporary byte cap: `config('conversion.tmp_bytes_cap')`.
 - In-flight Attempts are never evicted by limits or the reaper.
+- Default time-based retention: one hour, with the scheduled reaper running every 10 minutes. Explicit delete removes files immediately.
 
 ### 5.5 Attempt State Machine
 
@@ -186,24 +189,29 @@ Every conversion route resolves the current `image2pptx_session` and aborts with
 
 ### 6.2 Home Page
 
-- Upload area with drag-and-drop and file picker.
+- Upload area with drag-and-drop and multi-file picker.
+- Selected files appear as a local queue with waiting/uploading indicators before submit.
 - Copy: "PNG or JPEG. Up to 10 MB, up to 4096 px on the longest side."
-- Copy: "Temporary files are deleted after {N} hours. Download files you want to keep."
+- Copy: "Temporary files are deleted after {N} hour(s). Download files you want to keep."
 - Sidebar: recent Conversions in this session only.
+- Sidebar: delete-all action for temporary Conversions in this session.
 - No public access, slug, or copy-link language.
 
 ### 6.3 Conversion Page
 
 - Input preview.
-- Output preview: skeleton while running, inline PDF when ready, partial or failed message when needed.
-- Download `.pptx` and `.pdf` controls for ready artifacts.
+- Output preview: skeleton while running, inline PDF when available, disabled/partial/failed message when needed.
+- Download `.pptx` for ready artifacts; download `.pdf` only when PDF rendering is enabled and successful.
 - Attempt switcher (`a1`, `a2`, ...).
 - Regenerate button.
 - New image button/link back to upload.
 - Delete temporary conversion action with confirmation.
+- Delete-all action remains available in the recent-Conversions sidebar.
 - Session-only notice: "This conversion is only available in this browser session. Download files you want to keep."
 
 ## 7. Validation And Conversion
+
+Validation runs for every uploaded image. A single multi-file HTTP request creates no Conversion rows or temporary artifacts if any image in that request fails.
 
 Validation order:
 
@@ -244,7 +252,7 @@ The Python wrapper invokes `px-image2pptx` with argv only and never passes AI/Ge
 - Inline PDF responses use `Content-Disposition: inline` and `Content-Security-Policy: sandbox`.
 - Upload rate bucket: 5 uploads per IP per 15 minutes.
 - Conversion-read bucket: 60 GETs per IP per minute on `/conversions/{uuid}*`.
-- Per-session concurrency: only one pending/running Attempt.
+- Processing concurrency: only one Attempt is converted at a time. A session may own multiple pending Attempts after a batch upload.
 - Global queue depth cap: reject uploads/regenerations beyond 50 pending jobs with 503.
 - Static grep gate rejects `gemini`, `googleapis`, or `generativeai` in the installed package path.
 - Architecture tests forbid `shell_exec`, `system`, raw `proc_open`, and `Process::fromShellCommandline` in app code.
@@ -257,7 +265,10 @@ The Python wrapper invokes `px-image2pptx` with argv only and never passes AI/Ge
 - Applies the global temporary byte cap oldest-Conversion-first.
 - Deletes Conversions older than `config('conversion.ttl_hours')`, anchored on `conversions.created_at`.
 - Skips Conversions with pending/running Attempts.
+- Deletes orphaned temporary conversion directories that no longer have a database row.
 - Logs deletion and skip counts.
+
+The scheduler runs this command every 10 minutes, so a normal temporary file is eligible after one hour and usually removed within the next scheduled pass. User-initiated delete removes files immediately.
 
 Queue worker boot also marks stale running Attempts interrupted, so a crashed worker does not leave a permanent running state.
 

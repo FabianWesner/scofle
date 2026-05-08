@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Attempt;
 use App\Models\Conversion;
+use App\Models\Session;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
@@ -67,6 +68,11 @@ class ConversionStorage
     public function deleteConversion(Conversion $conversion): void
     {
         Storage::disk('local')->deleteDirectory("tmp/sessions/{$conversion->session_id}/conversions/{$conversion->uuid}");
+    }
+
+    public function deleteSessionConversions(Session $session): void
+    {
+        Storage::disk('local')->deleteDirectory("tmp/sessions/{$session->id}/conversions");
     }
 
     public function deleteAttempt(Attempt $attempt): void

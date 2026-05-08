@@ -16,7 +16,6 @@ class WarmPowerPointModelsCommand extends Command
     {
         $python = (string) config('conversion.python');
         $bridge = (string) config('conversion.bridge');
-        $soffice = (string) config('conversion.soffice');
 
         if (! is_file($bridge)) {
             $this->error("Bridge wrapper not found: {$bridge}");
@@ -24,12 +23,20 @@ class WarmPowerPointModelsCommand extends Command
             return self::FAILURE;
         }
 
-        if (! $this->checkPython($python) || ! $this->checkSoffice($soffice)) {
+        if (! $this->checkPython($python)) {
+            return self::FAILURE;
+        }
+
+        if ((bool) config('conversion.render_pdf') && ! $this->checkSoffice((string) config('conversion.soffice'))) {
             return self::FAILURE;
         }
 
         if ($this->option('check-only')) {
-            $this->info('PowerPoint conversion prerequisites are present.');
+            $message = (bool) config('conversion.render_pdf')
+                ? 'PowerPoint conversion and PDF preview prerequisites are present.'
+                : 'PowerPoint conversion prerequisites are present. PDF preview is disabled.';
+
+            $this->info($message);
 
             return self::SUCCESS;
         }

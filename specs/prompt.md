@@ -18,8 +18,8 @@ Implement specs/specification.md and satisfy specs/checklist.md's Done Definitio
 
 Scope:
 - Backend: models, migrations, factories, routes, controllers, validation, private temporary storage, sessions, upload nonce, signed downloads, queue job, reaper, rate limits, headers, logging.
-- Conversion: Python venv, pinned px-image2pptx [ocr,inpaint], Pillow normalisation, Symfony Process argv, warm-models, LibreOffice PDF, heartbeat/stale jobs, failure taxonomy.
-- Frontend: Inertia React, Wayfinder, Tailwind/Shadcn UI, upload, preview, polling, regenerate, Attempts, partial PDF state, delete, and session-only recent Conversions.
+- Conversion: Python venv, pinned px-image2pptx [ocr,inpaint], Pillow normalisation, Symfony Process argv, warm-models, optional LibreOffice PDF preview, heartbeat/stale jobs, failure taxonomy.
+- Frontend: Inertia React, Wayfinder, Tailwind/Shadcn UI, multi-image upload, queued status indicators, preview, polling, regenerate, Attempts, partial PDF state, per-conversion delete, delete-all for the current session, and session-only recent Conversions.
 - Tests/quality: Pest unit/feature/architecture tests.
 - Browser/UX validation: execute specs/testplan.md browser cases in Chrome using Playwright non-scripted interaction. Do not create scripted browser/e2e tests.
 
@@ -35,8 +35,8 @@ Update specs/checklist.md only after verification. Commit after each meaningful 
 1. Data model/private storage/session/nonce.
 2. Upload validation and home/conversion shell.
 3. Python bridge, queue conversion, normalisation, warm-models, heartbeat, failures.
-4. PDF rendering, downloads, headers, partial state.
-5. Regenerate, Attempt links, eviction, delete.
+4. Optional PDF rendering, downloads, headers, partial/preview-unavailable state.
+5. Regenerate, Attempt links, eviction, delete, and delete-all.
 6. Reaper, TTL/byte ceiling, rate limits, queue cap, stale running recovery.
 7. Security/architecture hardening: Origin, signed downloads, path discipline, no telemetry, no Gemini, no project/share fragments.
 8. Frontend polish and non-scripted Playwright Chrome QA.

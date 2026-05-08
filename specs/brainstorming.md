@@ -6,7 +6,7 @@ This file replaces the earlier brainstorming notes. The earlier public-link work
 
 - The browser session is the access boundary.
 - A URL by itself never grants access to any uploaded image, generated deck, preview, metadata, or status.
-- Users upload PNG or JPEG images and receive temporary `.pptx` and `.pdf` artifacts.
+- Users upload one or more PNG or JPEG images and receive temporary `.pptx` artifacts. `.pdf` preview/download is optional and disabled by default in local development.
 - Temporary working files exist only outside the web root, only for conversion, preview, and download, and are deleted by user action or cleanup.
 - Users must download artifacts they want to keep.
 - There is no permanent workspace, public sharing, link handoff, login, account, deck editor, or telemetry.
@@ -19,7 +19,8 @@ This file replaces the earlier brainstorming notes. The earlier public-link work
 
 ## Locked Requirements
 
-- Uploading a new image creates a new Conversion in the same Session.
+- Uploading one or more new images creates one new Conversion per image in the same Session.
+- Multiple pending Conversions are queued and processed one Attempt at a time.
 - Regenerate creates a new Attempt for the same Conversion.
 - Every Conversion route must verify current Session ownership and return 404 on mismatch.
 - Download routes require both a valid signed URL and current Session ownership.

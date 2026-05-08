@@ -41,4 +41,13 @@ class ConversionController extends Controller
 
         return redirect()->route('home');
     }
+
+    public function destroyAll(Request $request, ConversionLifecycle $conversions): RedirectResponse
+    {
+        /** @var Session $session */
+        $session = $request->attributes->get('image_session');
+        $conversions->deleteAllForSession($session);
+
+        return redirect()->route('home');
+    }
 }

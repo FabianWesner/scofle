@@ -29,7 +29,7 @@ class UploadNonceManager
 
         if ($updated !== 1) {
             throw ValidationException::withMessages([
-                'image' => 'This upload was already submitted. Refresh and try again.',
+                'images' => 'This upload was already submitted. Refresh and try again.',
             ]);
         }
     }

@@ -4,16 +4,21 @@ use App\Services\ImageSessionManager;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Testing\TestResponse;
 use Tests\TestCase;
 
 pest()->extend(TestCase::class)
     ->use(RefreshDatabase::class)
+    ->beforeEach(function (): void {
+        $this->withoutVite();
+        config(['queue.default' => 'sync']);
+        Queue::setDefaultDriver('sync');
+    })
+    ->afterEach(function (): void {
+        File::deleteDirectory(storage_path('app/private/tmp/sessions'));
+    })
     ->in('Feature');
-
-beforeEach(function (): void {
-    $this->withoutVite();
-})->in('Feature');
 
 expect()->extend('toBeOne', function () {
     return $this->toBe(1);
@@ -90,5 +95,6 @@ PHP);
         'conversion.python' => PHP_BINARY,
         'conversion.bridge' => $bridge,
         'conversion.soffice' => $soffice,
+        'conversion.render_pdf' => true,
     ]);
 }

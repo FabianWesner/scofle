@@ -2,6 +2,8 @@ export type RecentConversion = {
     uuid: string;
     url: string;
     label: string;
+    status: 'pending' | 'running' | 'ready' | 'failed';
+    displayStatus: 'pending' | 'running' | 'ready' | 'failed' | 'partial';
     createdAt: string | null;
 };
 

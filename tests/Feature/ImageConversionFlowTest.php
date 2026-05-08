@@ -16,7 +16,8 @@ test('home page renders upload shell with secure session cookie and headers', fu
         ->assertInertia(fn (Assert $page) => $page
             ->component('home')
             ->has('uploadNonce')
-            ->where('ttlHours', 24)
+            ->where('ttlHours', 1)
+            ->where('maxBatchUploads', 20)
             ->has('recentConversions', 0));
 
     $cookie = collect($response->headers->getCookies())
@@ -36,7 +37,7 @@ test('valid png upload creates session conversion, stores private input, convert
     $cookie = imageSessionCookie($home);
 
     $response = $this->withUnencryptedCookie(ImageSessionManager::CookieName, $cookie)->post('/uploads', [
-        'image' => pngUpload('deck.png'),
+        'images' => [pngUpload('deck.png')],
         'nonce' => $nonce,
     ]);
 
@@ -73,13 +74,48 @@ test('valid png upload creates session conversion, stores private input, convert
             ->has('attempts', 1));
 });
 
+test('pdf preview can be disabled while keeping pptx conversion ready', function () {
+    configureSuccessfulConverters();
+    config(['conversion.render_pdf' => false]);
+
+    $home = $this->get('/');
+    $nonce = $home->viewData('page')['props']['uploadNonce'];
+    $cookie = imageSessionCookie($home);
+
+    $response = $this->withUnencryptedCookie(ImageSessionManager::CookieName, $cookie)->post('/uploads', [
+        'images' => [pngUpload('deck.png')],
+        'nonce' => $nonce,
+    ]);
+
+    $conversion = Conversion::query()->firstOrFail();
+    $attempt = Attempt::query()->firstOrFail();
+
+    $response->assertRedirect(route('conversions.show', $conversion));
+
+    expect($attempt->status)->toBe(AttemptStatus::Ready)
+        ->and($attempt->pptx_bytes)->toBeGreaterThan(0)
+        ->and($attempt->pdf_bytes)->toBeNull()
+        ->and($attempt->failure_code)->toBeNull()
+        ->and(storage_path("app/private/tmp/sessions/{$conversion->session_id}/conversions/{$conversion->uuid}/attempts/1/output.pptx"))->toBeFile()
+        ->and(storage_path("app/private/tmp/sessions/{$conversion->session_id}/conversions/{$conversion->uuid}/attempts/1/output.pdf"))->not->toBeFile();
+
+    $this->withUnencryptedCookie(ImageSessionManager::CookieName, $cookie)->get(route('conversions.show', $conversion))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('conversion')
+            ->where('selectedAttempt.displayStatus', 'ready')
+            ->has('selectedAttempt.downloads.pptx')
+            ->where('selectedAttempt.downloads.pdf', null)
+            ->where('selectedAttempt.downloads.pdfInline', null));
+});
+
 test('different sessions cannot open conversion URLs', function () {
     configureSuccessfulConverters();
 
     $home = $this->get('/');
     $nonce = $home->viewData('page')['props']['uploadNonce'];
     $cookie = imageSessionCookie($home);
-    $this->withUnencryptedCookie(ImageSessionManager::CookieName, $cookie)->post('/uploads', ['image' => pngUpload(), 'nonce' => $nonce]);
+    $this->withUnencryptedCookie(ImageSessionManager::CookieName, $cookie)->post('/uploads', ['images' => [pngUpload()], 'nonce' => $nonce]);
     $conversion = Conversion::query()->firstOrFail();
 
     $this->withUnencryptedCookie(ImageSessionManager::CookieName, str_repeat('a', 80))

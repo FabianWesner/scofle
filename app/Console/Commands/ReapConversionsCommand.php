@@ -10,7 +10,9 @@ use App\Services\ConversionLifecycle;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 
 #[Signature('conversions:reap')]
 #[Description('Delete expired temporary conversions and enforce the local byte ceiling.')]
@@ -21,6 +23,7 @@ class ReapConversionsCommand extends Command
         $this->markInterruptedAttempts();
         $this->enforceByteCeiling($conversions);
         $this->deleteExpiredConversions($conversions);
+        $this->deleteOrphanedStorageDirectories();
 
         return self::SUCCESS;
     }
@@ -96,5 +99,52 @@ class ReapConversionsCommand extends Command
             ->oldest('created_at')
             ->get()
             ->first(fn (Conversion $conversion): bool => ! $conversion->hasInflightAttempt());
+    }
+
+    private function deleteOrphanedStorageDirectories(): void
+    {
+        $sessionsPath = Storage::disk('local')->path('tmp/sessions');
+
+        if (! is_dir($sessionsPath)) {
+            return;
+        }
+
+        $knownConversionUuids = Conversion::query()->pluck('uuid')->flip();
+
+        foreach (File::directories($sessionsPath) as $sessionPath) {
+            $conversionsPath = $sessionPath.'/conversions';
+
+            if (! is_dir($conversionsPath)) {
+                continue;
+            }
+
+            foreach (File::directories($conversionsPath) as $conversionPath) {
+                $uuid = basename($conversionPath);
+
+                if ($knownConversionUuids->has($uuid)) {
+                    continue;
+                }
+
+                File::deleteDirectory($conversionPath);
+                $this->info("Deleted orphaned temporary directory {$uuid}.");
+                Log::info('orphaned conversion directory reaped', ['conversion_uuid' => $uuid]);
+            }
+
+            $this->deleteDirectoryIfEmpty($conversionsPath);
+            $this->deleteDirectoryIfEmpty($sessionPath);
+        }
+    }
+
+    private function deleteDirectoryIfEmpty(string $path): void
+    {
+        if (! is_dir($path)) {
+            return;
+        }
+
+        if (File::files($path) !== [] || File::directories($path) !== []) {
+            return;
+        }
+
+        File::deleteDirectory($path);
     }
 }

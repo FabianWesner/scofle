@@ -93,21 +93,29 @@ class AttemptConverter
             return;
         }
 
-        $pdfResult = $this->runProcess($attempt, [
-            config('conversion.soffice'),
-            '--headless',
-            '--convert-to',
-            'pdf',
-            '--outdir',
-            $attemptDir,
-            $pptx,
-        ], $attemptDir);
+        $renderPdf = (bool) config('conversion.render_pdf');
+        $pdfFailed = false;
 
-        $this->writeLog($log, $bridge['output']."\n".$pdfResult['output']);
+        if ($renderPdf) {
+            $pdfResult = $this->runProcess($attempt, [
+                config('conversion.soffice'),
+                '--headless',
+                '--convert-to',
+                'pdf',
+                '--outdir',
+                $attemptDir,
+                $pptx,
+            ], $attemptDir);
 
-        $pdfFailed = $pdfResult['exit_code'] !== 0 || ! is_file($pdf) || filesize($pdf) === 0;
+            $this->writeLog($log, $bridge['output']."\n".$pdfResult['output']);
+
+            $pdfFailed = $pdfResult['exit_code'] !== 0 || ! is_file($pdf) || filesize($pdf) === 0;
+        } else {
+            $this->writeLog($log, $bridge['output']."\nPDF preview skipped; CONVERSION_RENDER_PDF=false.");
+        }
+
         $pptxBytes = filesize($pptx);
-        $pdfBytes = $pdfFailed ? null : filesize($pdf);
+        $pdfBytes = (! $renderPdf || $pdfFailed) ? null : filesize($pdf);
 
         $metaPath = $this->storage->absolutePath($attempt, 'meta.json');
         File::put($metaPath, json_encode([
@@ -123,8 +131,8 @@ class AttemptConverter
             'pptx_bytes' => $pptxBytes,
             'pdf_bytes' => $pdfBytes,
             'pptx_sha256' => hash_file('sha256', $pptx) ?: null,
-            'failure_code' => $pdfFailed ? FailureCode::PdfRender->value : null,
-            'failure_message' => $pdfFailed ? FailureCode::PdfRender->message() : null,
+            'failure_code' => $renderPdf && $pdfFailed ? FailureCode::PdfRender->value : null,
+            'failure_message' => $renderPdf && $pdfFailed ? FailureCode::PdfRender->message() : null,
             'heartbeat_at' => now(),
             'finished_at' => now(),
         ])->save();

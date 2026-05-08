@@ -2,6 +2,7 @@ import { Head, Link, router, useForm } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
 
 import { AppShell } from '@/components/app-shell';
+import { home } from '@/routes';
 import { destroy, regenerate } from '@/routes/conversions';
 import type { ConversionPageProps } from '@/types/conversion';
 
@@ -12,6 +13,7 @@ export default function Conversion({
     selectedAttempt,
     ttlHours,
 }: ConversionPageProps) {
+    const retention = ttlHours === 1 ? '1 hour' : `${ttlHours} hours`;
     const [pollExpired, setPollExpired] = useState(false);
     const [deleteOpen, setDeleteOpen] = useState(false);
     const regenerateForm = useForm({});
@@ -19,9 +21,15 @@ export default function Conversion({
     const isInflight =
         selectedAttempt.status === 'pending' ||
         selectedAttempt.status === 'running';
+    const hasRecentInflight = recentConversions.some(
+        (recentConversion) =>
+            recentConversion.status === 'pending' ||
+            recentConversion.status === 'running',
+    );
+    const shouldPoll = isInflight || hasRecentInflight;
 
     useEffect(() => {
-        if (!isInflight || pollExpired) {
+        if (!shouldPoll || pollExpired) {
             return;
         }
 
@@ -40,7 +48,7 @@ export default function Conversion({
         }, 2000);
 
         return () => window.clearInterval(timer);
-    }, [isInflight, pollExpired]);
+    }, [shouldPoll, pollExpired]);
 
     function submitRegenerate() {
         regenerateForm.post(regenerate.url(conversion.uuid), {
@@ -55,44 +63,93 @@ export default function Conversion({
     return (
         <AppShell recentConversions={recentConversions}>
             <Head title={`Conversion ${conversion.uuid.slice(0, 8)}`} />
-            <section className="flex flex-col gap-5">
-                <div className="flex flex-col justify-between gap-4 md:flex-row md:items-start">
-                    <div>
-                        <p className="font-mono text-xs text-zinc-500">
-                            {conversion.uuid}
-                        </p>
-                        <h1 className="mt-1 text-2xl font-semibold tracking-normal">
-                            Conversion {conversion.uuid.slice(0, 8)}
-                        </h1>
-                        <p className="mt-2 max-w-2xl text-sm text-zinc-600 dark:text-zinc-300">
-                            Only this browser session can open this conversion.
-                            Temporary files are deleted after {ttlHours} hours.
-                            Download files you want to keep.
-                        </p>
+            <section className="flex min-h-[calc(100vh-5.5rem)] flex-col gap-3">
+                <div className="rounded-lg border border-zinc-200 bg-white shadow-xs dark:border-zinc-800 dark:bg-zinc-900">
+                    <div className="flex flex-col justify-between gap-3 px-4 py-3 xl:flex-row xl:items-center">
+                        <div className="flex min-w-0 items-center gap-3">
+                            <StatusBadge
+                                status={selectedAttempt.displayStatus}
+                            />
+                            <div className="min-w-0">
+                                <p className="truncate font-mono text-[11px] text-zinc-500">
+                                    {conversion.uuid}
+                                </p>
+                                <h1 className="truncate text-lg font-semibold tracking-normal">
+                                    Conversion {conversion.uuid.slice(0, 8)}
+                                </h1>
+                            </div>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                            <a
+                                href={selectedAttempt.downloads.pptx ?? '#'}
+                                aria-disabled={!selectedAttempt.downloads.pptx}
+                                className={`inline-flex h-9 items-center rounded-md px-3 text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-zinc-500 ${
+                                    selectedAttempt.downloads.pptx
+                                        ? 'bg-zinc-950 text-white hover:bg-zinc-800 dark:bg-zinc-50 dark:text-zinc-950 dark:hover:bg-zinc-200'
+                                        : 'pointer-events-none bg-zinc-200 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-500'
+                                }`}
+                            >
+                                Download .pptx
+                            </a>
+                            {selectedAttempt.downloads.pdf && (
+                                <a
+                                    href={selectedAttempt.downloads.pdf}
+                                    className="inline-flex h-9 items-center rounded-md border border-zinc-300 bg-white px-3 text-sm font-medium outline-none hover:bg-zinc-100 focus-visible:ring-2 focus-visible:ring-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800"
+                                >
+                                    Download .pdf
+                                </a>
+                            )}
+                            <Link
+                                href={home.url()}
+                                className="inline-flex h-9 items-center rounded-md border border-zinc-300 bg-white px-3 text-sm font-medium outline-none hover:bg-zinc-100 focus-visible:ring-2 focus-visible:ring-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800"
+                            >
+                                New image
+                            </Link>
+                            <button
+                                type="button"
+                                onClick={submitRegenerate}
+                                disabled={
+                                    isInflight || regenerateForm.processing
+                                }
+                                className="h-9 rounded-md border border-zinc-300 bg-white px-3 text-sm font-medium outline-none hover:bg-zinc-100 focus-visible:ring-2 focus-visible:ring-zinc-500 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800"
+                            >
+                                Regenerate
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setDeleteOpen(true)}
+                                className="h-9 rounded-md border border-red-200 bg-white px-3 text-sm font-medium text-red-700 outline-none hover:bg-red-50 focus-visible:ring-2 focus-visible:ring-red-500 dark:border-red-900 dark:bg-zinc-900 dark:text-red-300 dark:hover:bg-red-950"
+                            >
+                                Delete
+                            </button>
+                        </div>
                     </div>
-                    <div className="flex flex-wrap gap-2">
-                        <Link
-                            href="/"
-                            className="inline-flex h-10 items-center rounded-md border border-zinc-300 bg-white px-3 text-sm font-medium outline-none hover:bg-zinc-100 focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800"
-                        >
-                            New image
-                        </Link>
-                        <button
-                            type="button"
-                            onClick={submitRegenerate}
-                            disabled={isInflight || regenerateForm.processing}
-                            className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm font-medium outline-none hover:bg-zinc-100 focus-visible:ring-2 focus-visible:ring-blue-500 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800"
-                        >
-                            Regenerate
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => setDeleteOpen(true)}
-                            className="h-10 rounded-md border border-red-200 bg-white px-3 text-sm font-medium text-red-700 outline-none hover:bg-red-50 focus-visible:ring-2 focus-visible:ring-red-500 dark:border-red-900 dark:bg-zinc-900 dark:text-red-300 dark:hover:bg-red-950"
-                        >
-                            Delete
-                        </button>
-                    </div>
+                    <dl className="grid gap-px border-t border-zinc-200 bg-zinc-200 text-xs sm:grid-cols-3 dark:border-zinc-800 dark:bg-zinc-800">
+                        <div className="bg-zinc-50 px-4 py-2 dark:bg-zinc-950/40">
+                            <dt className="font-medium text-zinc-500">
+                                Access
+                            </dt>
+                            <dd className="mt-0.5 text-zinc-700 dark:text-zinc-200">
+                                This browser session only
+                            </dd>
+                        </div>
+                        <div className="bg-zinc-50 px-4 py-2 dark:bg-zinc-950/40">
+                            <dt className="font-medium text-zinc-500">
+                                Temporary retention
+                            </dt>
+                            <dd className="mt-0.5 text-zinc-700 dark:text-zinc-200">
+                                Deleted after {retention}
+                            </dd>
+                        </div>
+                        <div className="bg-zinc-50 px-4 py-2 dark:bg-zinc-950/40">
+                            <dt className="font-medium text-zinc-500">
+                                Stored output
+                            </dt>
+                            <dd className="mt-0.5 text-zinc-700 dark:text-zinc-200">
+                                {formatBytes(conversion.totalBytes)}
+                            </dd>
+                        </div>
+                    </dl>
                 </div>
 
                 {pollExpired && (
@@ -101,90 +158,90 @@ export default function Conversion({
                     </p>
                 )}
 
-                <div className="grid gap-5 xl:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
-                    <section className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
-                        <div className="flex items-center justify-between gap-3">
+                <div className="grid flex-1 items-start gap-3 xl:grid-cols-[minmax(22rem,0.68fr)_minmax(40rem,1.32fr)] 2xl:grid-cols-[minmax(24rem,0.62fr)_minmax(48rem,1.38fr)]">
+                    <section className="flex min-h-0 flex-col rounded-lg border border-zinc-200 bg-white shadow-xs dark:border-zinc-800 dark:bg-zinc-900">
+                        <div className="flex items-center justify-between gap-3 border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
                             <h2 className="text-sm font-semibold">
                                 Input image
                             </h2>
-                            <StatusBadge
-                                status={selectedAttempt.displayStatus}
-                            />
+                            <span className="font-mono text-[11px] text-zinc-500">
+                                a{selectedAttempt.n}
+                            </span>
                         </div>
-                        <div className="mt-4 flex aspect-[4/3] items-center justify-center overflow-hidden rounded-md bg-zinc-100 dark:bg-zinc-800">
-                            {selectedAttempt.inputPreview ? (
-                                <img
-                                    src={selectedAttempt.inputPreview}
-                                    alt="Uploaded source image"
-                                    className="h-full w-full object-contain"
-                                />
-                            ) : (
-                                <span className="text-sm text-zinc-500">
-                                    No preview
-                                </span>
-                            )}
+                        <div className="p-3">
+                            <div className="flex aspect-[16/10] items-center justify-center overflow-hidden rounded-md bg-zinc-100 ring-1 ring-zinc-200 dark:bg-zinc-800 dark:ring-zinc-700">
+                                {selectedAttempt.inputPreview ? (
+                                    <img
+                                        src={selectedAttempt.inputPreview}
+                                        alt="Uploaded source image"
+                                        className="h-full w-full object-contain"
+                                    />
+                                ) : (
+                                    <span className="text-sm text-zinc-500">
+                                        No preview
+                                    </span>
+                                )}
+                            </div>
                         </div>
-                        <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
-                            <div>
-                                <dt className="text-zinc-500">File</dt>
-                                <dd className="truncate font-medium">
+                        <dl className="grid grid-cols-2 gap-px border-y border-zinc-200 bg-zinc-200 text-sm dark:border-zinc-800 dark:bg-zinc-800">
+                            <div className="min-w-0 bg-white px-4 py-3 dark:bg-zinc-900">
+                                <dt className="text-xs font-medium text-zinc-500">
+                                    File
+                                </dt>
+                                <dd className="mt-0.5 truncate font-medium">
                                     {selectedAttempt.displayFilename ??
                                         'Unknown'}
                                 </dd>
                             </div>
-                            <div>
-                                <dt className="text-zinc-500">Input</dt>
-                                <dd className="font-medium">
+                            <div className="bg-white px-4 py-3 dark:bg-zinc-900">
+                                <dt className="text-xs font-medium text-zinc-500">
+                                    Input
+                                </dt>
+                                <dd className="mt-0.5 font-medium">
                                     {formatBytes(selectedAttempt.inputBytes)}
                                 </dd>
                             </div>
                         </dl>
+                        <div className="flex flex-wrap gap-2 p-3">
+                            {attempts.map((attempt) => (
+                                <Link
+                                    key={attempt.id}
+                                    href={attempt.url}
+                                    className={`rounded-md border px-2.5 py-1.5 text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-zinc-500 ${
+                                        attempt.selected
+                                            ? 'border-zinc-950 bg-zinc-950 text-white dark:border-zinc-50 dark:bg-zinc-50 dark:text-zinc-950'
+                                            : 'border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800'
+                                    }`}
+                                >
+                                    {attempt.label} ({attempt.displayStatus})
+                                </Link>
+                            ))}
+                        </div>
                     </section>
 
-                    <section className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
-                        <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
-                            <h2 className="text-sm font-semibold">
-                                Output preview
-                            </h2>
-                            <div className="flex flex-wrap gap-2">
-                                {selectedAttempt.downloads.pptx && (
-                                    <a
-                                        href={selectedAttempt.downloads.pptx}
-                                        className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white outline-none hover:bg-blue-700 focus-visible:ring-2 focus-visible:ring-blue-500"
-                                    >
-                                        Download .pptx
-                                    </a>
-                                )}
-                                {selectedAttempt.downloads.pdf && (
-                                    <a
-                                        href={selectedAttempt.downloads.pdf}
-                                        className="rounded-md border border-zinc-300 px-3 py-1.5 text-sm font-medium outline-none hover:bg-zinc-100 focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-zinc-700 dark:hover:bg-zinc-800"
-                                    >
-                                        Download .pdf
-                                    </a>
-                                )}
+                    <section className="flex min-h-[34rem] flex-col rounded-lg border border-zinc-200 bg-white shadow-xs xl:self-stretch dark:border-zinc-800 dark:bg-zinc-900">
+                        <div className="flex flex-col justify-between gap-3 border-b border-zinc-200 px-4 py-3 sm:flex-row sm:items-center dark:border-zinc-800">
+                            <div>
+                                <h2 className="text-sm font-semibold">
+                                    Output preview
+                                </h2>
+                                <p className="mt-0.5 text-xs text-zinc-500">
+                                    PDF render of the generated deck
+                                </p>
+                            </div>
+                            <div className="text-xs text-zinc-500">
+                                {selectedAttempt.pptxBytes
+                                    ? `${formatBytes(selectedAttempt.pptxBytes)} pptx`
+                                    : 'Awaiting output'}
+                                {selectedAttempt.pdfBytes
+                                    ? ` / ${formatBytes(selectedAttempt.pdfBytes)} pdf`
+                                    : ''}
                             </div>
                         </div>
 
                         <OutputState attempt={selectedAttempt} />
                     </section>
                 </div>
-
-                <section className="flex flex-wrap gap-2">
-                    {attempts.map((attempt) => (
-                        <Link
-                            key={attempt.id}
-                            href={attempt.url}
-                            className={`rounded-md border px-3 py-2 text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
-                                attempt.selected
-                                    ? 'border-blue-600 bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-200'
-                                    : 'border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800'
-                            }`}
-                        >
-                            {attempt.label} ({attempt.displayStatus})
-                        </Link>
-                    ))}
-                </section>
             </section>
 
             {deleteOpen && (
@@ -201,7 +258,7 @@ export default function Conversion({
                             <button
                                 type="button"
                                 onClick={() => setDeleteOpen(false)}
-                                className="rounded-md border border-zinc-300 px-3 py-2 text-sm outline-none hover:bg-zinc-100 focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-zinc-700 dark:hover:bg-zinc-800"
+                                className="rounded-md border border-zinc-300 px-3 py-2 text-sm outline-none hover:bg-zinc-100 focus-visible:ring-2 focus-visible:ring-zinc-500 dark:border-zinc-700 dark:hover:bg-zinc-800"
                             >
                                 Cancel
                             </button>
@@ -228,9 +285,9 @@ function OutputState({
 }) {
     if (attempt.status === 'pending' || attempt.status === 'running') {
         return (
-            <div className="mt-4 flex min-h-96 flex-col items-center justify-center gap-3 rounded-md bg-zinc-100 p-6 text-center dark:bg-zinc-800">
-                <div className="h-3 w-48 animate-pulse rounded-full bg-zinc-300 dark:bg-zinc-700" />
-                <div className="h-3 w-64 animate-pulse rounded-full bg-zinc-300 dark:bg-zinc-700" />
+            <div className="m-3 flex min-h-[28rem] flex-1 flex-col items-center justify-center gap-3 rounded-md bg-zinc-100 p-6 text-center ring-1 ring-zinc-200 dark:bg-zinc-800 dark:ring-zinc-700">
+                <div className="h-2.5 w-48 animate-pulse rounded-full bg-zinc-300 dark:bg-zinc-700" />
+                <div className="h-2.5 w-64 animate-pulse rounded-full bg-zinc-300 dark:bg-zinc-700" />
                 <p className="text-sm text-zinc-600 dark:text-zinc-300">
                     Generating. This usually takes 5-20 seconds.
                 </p>
@@ -240,7 +297,7 @@ function OutputState({
 
     if (attempt.status === 'failed') {
         return (
-            <div className="mt-4 rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-200">
+            <div className="m-3 rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-200">
                 {attempt.failureMessage ??
                     'We could not convert this image. Please try a different image.'}
             </div>
@@ -249,16 +306,21 @@ function OutputState({
 
     if (attempt.displayStatus === 'partial') {
         return (
-            <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-100">
+            <div className="m-3 rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-100">
                 PDF rendering failed; the .pptx file is still available.
             </div>
         );
     }
 
     if (!attempt.downloads.pdfInline) {
+        const message =
+            attempt.failureCode === null
+                ? 'PowerPoint deck is ready. PDF preview is disabled for this local setup.'
+                : 'PDF preview unavailable.';
+
         return (
-            <div className="mt-4 rounded-md border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-700 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-200">
-                PDF preview unavailable.
+            <div className="m-3 rounded-md border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-700 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-200">
+                {message}
             </div>
         );
     }
@@ -267,7 +329,7 @@ function OutputState({
         <object
             data={attempt.downloads.pdfInline}
             type="application/pdf"
-            className="mt-4 h-[36rem] w-full rounded-md border border-zinc-200 bg-zinc-100 dark:border-zinc-800"
+            className="m-3 min-h-[34rem] w-full flex-1 rounded-md border border-zinc-200 bg-zinc-100 dark:border-zinc-800"
         >
             <div className="p-4 text-sm text-zinc-700 dark:text-zinc-200">
                 Your browser blocks inline PDF; download to view.
@@ -283,7 +345,7 @@ function StatusBadge({
 }) {
     const className =
         status === 'ready'
-            ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-200'
+            ? 'bg-zinc-950 text-white dark:bg-zinc-50 dark:text-zinc-950'
             : status === 'failed'
               ? 'bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-200'
               : status === 'partial'

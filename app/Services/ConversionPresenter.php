@@ -27,6 +27,7 @@ class ConversionPresenter
         return [
             'uploadNonce' => $this->nonces->create(),
             'ttlHours' => config('conversion.ttl_hours'),
+            'maxBatchUploads' => config('conversion.max_batch_uploads'),
             'recentConversions' => $this->recentConversions($session),
         ];
     }
@@ -69,12 +70,18 @@ class ConversionPresenter
             ->latest('created_at')
             ->limit((int) config('conversion.max_per_session'))
             ->get()
-            ->map(fn (Conversion $conversion): array => [
-                'uuid' => $conversion->uuid,
-                'url' => route('conversions.show', $conversion),
-                'label' => $conversion->attempts->first()?->display_filename ?: 'Untitled conversion',
-                'createdAt' => $conversion->created_at?->toISOString(),
-            ])
+            ->map(function (Conversion $conversion): array {
+                $attempt = $conversion->attempts->first();
+
+                return [
+                    'uuid' => $conversion->uuid,
+                    'url' => route('conversions.show', $conversion),
+                    'label' => $attempt?->display_filename ?: 'Untitled conversion',
+                    'status' => $attempt?->status->value ?? AttemptStatus::Pending->value,
+                    'displayStatus' => $attempt instanceof Attempt ? $this->displayStatus($attempt) : AttemptStatus::Pending->value,
+                    'createdAt' => $conversion->created_at?->toISOString(),
+                ];
+            })
             ->values()
             ->all();
     }

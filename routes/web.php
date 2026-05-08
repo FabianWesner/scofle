@@ -11,6 +11,7 @@ Route::get('/', HomeController::class)->name('home');
 
 Route::middleware([EnsureSameOriginWrite::class])->group(function (): void {
     Route::post('/uploads', UploadController::class)->middleware('throttle:uploads')->name('uploads.store');
+    Route::delete('/conversions', [ConversionController::class, 'destroyAll'])->name('conversions.destroy-all');
     Route::post('/conversions/{conversion}/regenerate', [ConversionController::class, 'regenerate'])->middleware('throttle:uploads')->name('conversions.regenerate');
     Route::delete('/conversions/{conversion}', [ConversionController::class, 'destroy'])->name('conversions.destroy');
 });

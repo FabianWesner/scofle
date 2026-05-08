@@ -23,7 +23,13 @@ class StoreImageUploadRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'image' => [
+            'images' => [
+                'required',
+                'array',
+                'min:1',
+                'max:'.(int) config('conversion.max_batch_uploads'),
+            ],
+            'images.*' => [
                 'required',
                 'file',
                 'max:'.(int) ceil(config('upload.max_bytes') / 1024),
@@ -35,10 +41,11 @@ class StoreImageUploadRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'image.required' => 'Choose a PNG or JPEG image.',
-            'image.max' => 'Image is too large. Upload a PNG or JPEG up to 10 MB.',
-            'image.mimes' => 'Only PNG and JPEG images are accepted.',
-            'image.mimetypes' => 'Only PNG and JPEG images are accepted.',
+            'images.required' => 'Choose one or more PNG or JPEG images.',
+            'images.array' => 'Choose one or more PNG or JPEG images.',
+            'images.max' => 'Upload at most '.config('conversion.max_batch_uploads').' images at once.',
+            'images.*.required' => 'Choose one or more PNG or JPEG images.',
+            'images.*.max' => 'One of the images is too large. Upload PNG or JPEG images up to 10 MB.',
             'nonce.required' => 'This upload form expired. Refresh and try again.',
         ];
     }

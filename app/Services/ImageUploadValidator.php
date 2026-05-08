@@ -11,19 +11,19 @@ class ImageUploadValidator
     /**
      * @return array{mime: 'image/png'|'image/jpeg', ext: 'png'|'jpg', bytes: int, pixels: int, width: int, height: int}
      */
-    public function validate(UploadedFile $file): array
+    public function validate(UploadedFile $file, string $errorKey = 'images.0'): array
     {
         $path = $file->getRealPath();
 
         if (! is_string($path) || ! is_file($path) || filesize($path) === 0) {
-            $this->fail('The uploaded file is empty.');
+            $this->fail('The uploaded file is empty.', $errorKey);
         }
 
-        $mime = $this->sniffMime($path);
-        $this->rejectKnownUnsupported($path, $mime);
+        $mime = $this->sniffMime($path, $errorKey);
+        $this->rejectKnownUnsupported($path, $mime, $errorKey);
 
         if (! in_array($mime, ['image/png', 'image/jpeg'], true)) {
-            $this->fail('Only PNG and JPEG images are accepted.');
+            $this->fail('Only PNG and JPEG images are accepted.', $errorKey);
         }
 
         $declaredExtension = Str::lower($file->getClientOriginalExtension());
@@ -34,13 +34,13 @@ class ImageUploadValidator
             || ($mime === 'image/png' && $declaredExtension !== 'png')
             || ($mime === 'image/jpeg' && ! in_array($declaredExtension, ['jpg', 'jpeg'], true))
         ) {
-            $this->fail('File contents do not match the file extension.');
+            $this->fail('File contents do not match the file extension.', $errorKey);
         }
 
         $size = @getimagesize($path);
 
         if ($size === false) {
-            $this->fail('We could not read this image. Use a valid PNG or JPEG.');
+            $this->fail('We could not read this image. Use a valid PNG or JPEG.', $errorKey);
         }
 
         [$width, $height] = $size;
@@ -48,11 +48,11 @@ class ImageUploadValidator
         $pixels = $width * $height;
 
         if ($longEdge > config('upload.max_long_edge')) {
-            $this->fail('Image dimensions are too large. The longest side must be 4096 px or less.');
+            $this->fail('Image dimensions are too large. The longest side must be 4096 px or less.', $errorKey);
         }
 
         if ($pixels > config('upload.max_pixels')) {
-            $this->fail('Image has too many pixels. Upload an image up to 16,777,216 total pixels.');
+            $this->fail('Image has too many pixels. Upload an image up to 16,777,216 total pixels.', $errorKey);
         }
 
         return [
@@ -65,12 +65,12 @@ class ImageUploadValidator
         ];
     }
 
-    private function sniffMime(string $path): string
+    private function sniffMime(string $path, string $errorKey): string
     {
         $info = finfo_open(FILEINFO_MIME_TYPE);
 
         if ($info === false) {
-            $this->fail('We could not inspect this file.');
+            $this->fail('We could not inspect this file.', $errorKey);
         }
 
         $mime = finfo_file($info, $path);
@@ -79,33 +79,33 @@ class ImageUploadValidator
         return is_string($mime) ? $mime : 'application/octet-stream';
     }
 
-    private function rejectKnownUnsupported(string $path, string $mime): void
+    private function rejectKnownUnsupported(string $path, string $mime, string $errorKey): void
     {
         $prefix = file_get_contents($path, false, null, 0, 512) ?: '';
         $lowerPrefix = Str::lower($prefix);
 
         if (str_starts_with($prefix, 'GIF8') || $mime === 'image/gif') {
-            $this->fail('GIF is not supported. Use PNG or JPEG.');
+            $this->fail('GIF is not supported. Use PNG or JPEG.', $errorKey);
         }
 
         if (str_starts_with($prefix, 'BM') || $mime === 'image/bmp' || $mime === 'image/x-ms-bmp') {
-            $this->fail('BMP is not supported. Use PNG or JPEG.');
+            $this->fail('BMP is not supported. Use PNG or JPEG.', $errorKey);
         }
 
         if (str_starts_with($prefix, "II*\0") || str_starts_with($prefix, "MM\0*") || in_array($mime, ['image/tiff', 'image/x-tiff'], true)) {
-            $this->fail('TIFF is not supported. Use PNG or JPEG.');
+            $this->fail('TIFF is not supported. Use PNG or JPEG.', $errorKey);
         }
 
         if (str_starts_with($prefix, 'RIFF') && substr($prefix, 8, 4) === 'WEBP') {
-            $this->fail('WebP is not supported. Convert to PNG or JPEG.');
+            $this->fail('WebP is not supported. Convert to PNG or JPEG.', $errorKey);
         }
 
         if (str_contains($lowerPrefix, '<svg') || $mime === 'image/svg+xml') {
-            $this->fail('SVG is not supported. Use PNG or JPEG.');
+            $this->fail('SVG is not supported. Use PNG or JPEG.', $errorKey);
         }
 
         if (str_contains(substr($prefix, 4, 16), 'ftypheic') || str_contains(substr($prefix, 4, 16), 'ftypheif') || str_contains(substr($prefix, 4, 16), 'ftypmif1')) {
-            $this->fail('HEIC is not supported. Use PNG or JPEG.');
+            $this->fail('HEIC is not supported. Use PNG or JPEG.', $errorKey);
         }
     }
 
@@ -118,10 +118,10 @@ class ImageUploadValidator
         };
     }
 
-    private function fail(string $message): never
+    private function fail(string $message, string $errorKey): never
     {
         throw ValidationException::withMessages([
-            'image' => $message,
+            $errorKey => $message,
         ]);
     }
 }

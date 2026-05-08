@@ -4,7 +4,7 @@
 
 ## Goals
 
-1. Prove the local MVP converts images into downloadable `.pptx` and `.pdf` artifacts.
+1. Prove the local MVP accepts one or more images, queues them, and converts each into a downloadable `.pptx` artifact, with optional `.pdf` artifacts when PDF rendering is enabled.
 2. Prove every conversion read, action, preview, and download is scoped to the current `image2pptx_session`.
 3. Prove temporary files are removed by delete, retention, and disk-ceiling cleanup.
 4. Prove unsupported input and bridge failures produce stable, non-leaking user-facing errors.
@@ -32,7 +32,7 @@ Tags:
 ### HP-01 First Upload Creates A Session Conversion
 
 - **Tag:** `MVP`. **Layer:** L1, L4.
-- **Precondition:** Fresh browser session. Queue worker available. LibreOffice and warmed Python models available.
+- **Precondition:** Fresh browser session. Background queue or queue worker available. Warmed Python models available. LibreOffice is required only when `CONVERSION_RENDER_PDF=true`.
 - **Steps:** Visit `/`, upload a valid PNG, submit.
 - **Expected:**
   - `image2pptx_session` cookie is set as HttpOnly and SameSite=Lax.
@@ -42,7 +42,7 @@ Tags:
   - Page shows input preview, running state, and recent session conversions.
   - Status progresses `pending -> running -> ready`.
   - Inline PDF preview renders when `pdf_bytes` exists.
-  - `.pptx` and `.pdf` download controls are enabled when ready.
+  - `.pptx` download control is enabled when ready; `.pdf` controls are enabled only when `pdf_bytes` exists.
   - HTML responses include frame-denial headers.
   - No public-share, copy-link, slug, or "project" access copy appears.
 
@@ -73,15 +73,17 @@ Tags:
   - Attempt switcher exposes `a1` and `a2`.
   - Max Attempts per Conversion is enforced and does not evict in-flight Attempts.
 
-### HP-04 Uploading Another Image Creates Another Conversion
+### HP-04 Uploading Multiple Images Creates Queued Conversions
 
 - **Tag:** `MVP`. **Layer:** L1, L4.
-- **Precondition:** Existing Conversion in the session.
-- **Steps:** Return to `/`, upload a different valid image.
+- **Precondition:** Fresh or existing browser session.
+- **Steps:** Select or drag multiple valid PNG/JPEG files into the upload area and submit.
 - **Expected:**
-  - A new Conversion is created in the same session.
-  - The existing Conversion is not mutated.
-  - Sidebar lists both Conversions newest-first.
+  - One Conversion and first Attempt are created per image in the same session.
+  - The browser can submit the selected batch as sequential one-image JSON uploads when local server body limits would reject one large multipart request.
+  - Attempts are queued as `pending` and processed one at a time in FIFO order.
+  - The upload response redirects to the first created Conversion.
+  - Sidebar lists all created Conversions newest-first with status icons for waiting, processing, done, or failed.
   - Each URL is accessible only with the owning session cookie.
 
 ### HP-05 Refresh And Browser Session Continuity
@@ -117,7 +119,19 @@ Tags:
   - Sidebar updates.
   - Deleted URL returns 404.
 
-### HP-08 Reaper Removes Old Or Excess Temporary Data
+### HP-08 Delete All Session Conversions Removes Temporary Data
+
+- **Tag:** `MVP`. **Layer:** L1, L4.
+- **Precondition:** Current browser session has at least two Conversions with generated files. Another session has at least one Conversion.
+- **Steps:** Use the recent-sidebar delete-all action.
+- **Expected:**
+  - DELETE `/conversions` redirects to `/`.
+  - All Conversion and Attempt rows for the current session are deleted.
+  - Temporary conversion directories for the current session are recursively removed.
+  - Conversions owned by other sessions remain untouched.
+  - Sidebar becomes empty for the current session.
+
+### HP-09 Reaper Removes Old Or Excess Temporary Data
 
 - **Tag:** `MVP`. **Layer:** L1.
 - **Precondition:** Old Conversions and byte ceiling configured low for the test.
@@ -127,9 +141,11 @@ Tags:
   - Byte ceiling eviction deletes oldest evictable Conversions until under `config('conversion.tmp_bytes_cap')`.
   - Pending/running Attempts are skipped.
   - Stale running Attempts are marked interrupted before cleanup.
+  - Orphaned temporary conversion directories without database rows are deleted.
   - Logs include deletion and skip counts.
+  - Scheduled cleanup is configured to run every 10 minutes with overlap protection.
 
-### HP-09 Configured Temporary-Retention Copy
+### HP-10 Configured Temporary-Retention Copy
 
 - **Tag:** `MVP`. **Layer:** L1, L4.
 - **Precondition:** Override `config('conversion.ttl_hours')` to a test value.
@@ -212,11 +228,11 @@ Tags:
 - **Setup:** Fake bridge writes empty or invalid `.pptx`.
 - **Expected:** Attempt becomes `failed` with a stable failure code; no download links are produced.
 
-### CF-04 PDF Render Failure
+### CF-04 PDF Preview Disabled Or Render Failure
 
 - **Tag:** `MVP`. **Layer:** L1.
-- **Setup:** Fake LibreOffice failure after valid `.pptx`.
-- **Expected:** Attempt remains `ready`, `.pptx` is downloadable, PDF preview/download unavailable, UI shows derived `partial` state.
+- **Setup:** Disable PDF rendering or fake LibreOffice failure after valid `.pptx`.
+- **Expected:** Attempt remains `ready`, `.pptx` is downloadable, PDF preview/download unavailable. Render failure with `failure_code='pdf_render'` shows derived `partial`; disabled preview remains `ready`.
 
 ### CF-05 Disk Write Failure
 
@@ -247,10 +263,10 @@ Tags:
 - **Tag:** `MVP`. **Layer:** L1.
 - **Expected:** Upload bucket enforces 5 per IP per 15 minutes; conversion-read bucket enforces 60 GETs per IP per minute; queue cap rejects new work beyond 50 pending jobs.
 
-### SEC-04 Per-Session Concurrency
+### SEC-04 Serialized Queue Processing
 
 - **Tag:** `MVP`. **Layer:** L1.
-- **Expected:** A session with a pending/running Attempt cannot create another pending/running Attempt via upload or regenerate.
+- **Expected:** Multiple pending Attempts may exist after batch upload, but the queue processor converts only one Attempt at a time and drains pending Attempts oldest-first.
 
 ### SEC-05 Private Storage Only
 
@@ -267,12 +283,12 @@ Tags:
 ### UI-01 Home Page
 
 - **Tag:** `MVP`. **Layer:** L4.
-- **Expected:** Drag/drop and file picker work; accepted-format and temporary-retention copy is visible; unsupported files show clear client-side feedback while preserving server validation.
+- **Expected:** Drag/drop and multi-file picker work; queued files show waiting/uploading indicators; accepted-format and temporary-retention copy is visible; unsupported files show clear client-side feedback while preserving server validation.
 
 ### UI-02 Conversion Page States
 
 - **Tag:** `MVP`. **Layer:** L4.
-- **Expected:** Pending/running skeleton, ready preview, partial PDF failure, failed conversion, slow/offline polling, rate-limited, delete-confirm, and empty recent states render without overlap or console errors.
+- **Expected:** Pending/running skeleton, ready preview, partial PDF failure, failed conversion, slow/offline polling, rate-limited, delete-confirm, delete-all confirm, and empty recent states render without overlap or console errors.
 
 ### UI-03 Keyboard And Focus
 
@@ -283,7 +299,7 @@ Tags:
 
 - **Tag:** `MVP`. **Layer:** L4, L6.
 - **Input:** `/Users/fabianwesner/Workspace/image-to-powerpoint/examples/img.png` and `/Users/fabianwesner/Workspace/image-to-powerpoint/examples/draft.png`.
-- **Expected:** Both images upload, convert, preview, download, survive refresh in the same session, and are inaccessible from a different session.
+- **Expected:** Both images upload in one batch, queue, convert, preview, download, survive refresh in the same session, and are inaccessible from a different session.
 
 ## 6. Local Verification Commands
 
@@ -302,9 +318,10 @@ bin/grep-no-gemini.sh
 
 ## 7. Manual QA
 
-- Upload both example images and verify `.pptx` and `.pdf` artifacts are produced.
+- Upload both example images in one batch and verify `.pptx` artifacts are produced. Verify `.pdf` artifacts only when `CONVERSION_RENDER_PDF=true`.
 - Open a generated `.pptx` in Microsoft PowerPoint, Apple Keynote, and Google Slides.
 - Test desktop Chrome, desktop Firefox, desktop Safari, iOS Safari, and Android Chrome where practical.
 - Confirm temporary-retention language does not imply permanent storage.
 - Confirm no page exposes public share/copy-link/project-access language.
 - Confirm deleting a Conversion removes files and makes the URL 404.
+- Confirm deleting all session Conversions removes all current-session files while leaving other sessions inaccessible and untouched.
