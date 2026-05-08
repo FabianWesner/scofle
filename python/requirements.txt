@@ -1,0 +1,3 @@
+Pillow==11.3.0
+python-pptx==1.0.2
+px-image2pptx[ocr,inpaint] @ git+https://github.com/JadeLiu-tech/px-image2pptx.git@6f4ad9fa27173388c0dc3a63710a2832fb2c3b1b

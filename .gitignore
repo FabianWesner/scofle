@@ -8,6 +8,9 @@
 /resources/js/actions
 /resources/js/routes
 /resources/js/wayfinder
+/storage/app/private
+/storage/app/python-venv
+/storage/framework/testing/converters
 /storage/*.key
 /storage/pail
 /vendor
@@ -26,6 +29,8 @@ yarn-error.log
 /.agents
 /.claude
 /.codex
+/.playwright-mcp
+qa-ready-page.png
 /.fleet
 /.idea
 /.nova
