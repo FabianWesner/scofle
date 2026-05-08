@@ -1,5 +1,5 @@
 import { Head, router } from '@inertiajs/react';
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import type { DragEvent, FormEvent } from 'react';
 
 import { AppShell } from '@/components/app-shell';
@@ -32,7 +32,7 @@ export default function Home({
     maxBatchUploads,
     recentConversions,
 }: HomeProps) {
-    const inputRef = useRef<HTMLInputElement>(null);
+    const uploadInputId = 'image-upload-input';
     const retention = ttlHours === 1 ? '1 hour' : `${ttlHours} hours`;
     const [clientError, setClientError] = useState<string | null>(null);
     const [serverError, setServerError] = useState<string | null>(null);
@@ -83,7 +83,7 @@ export default function Home({
         setQueuedImages((images) => images.filter((image) => image.id !== id));
     }
 
-    function onDrop(event: DragEvent<HTMLDivElement>) {
+    function onDrop(event: DragEvent<HTMLLabelElement>) {
         event.preventDefault();
         const hasDirectory = Array.from(event.dataTransfer.items).some(
             (item) => item.kind !== 'file',
@@ -173,7 +173,7 @@ export default function Home({
                     </div>
 
                     <input
-                        ref={inputRef}
+                        id={uploadInputId}
                         type="file"
                         name="images[]"
                         accept="image/png,image/jpeg"
@@ -186,76 +186,64 @@ export default function Home({
                     />
 
                     <div className="flex flex-1 flex-col gap-3 p-3">
-                        <div
+                        <label
+                            htmlFor={uploadInputId}
                             onDragOver={(event) => event.preventDefault()}
                             onDrop={onDrop}
-                            className="flex min-h-[24rem] flex-1 flex-col items-center justify-center gap-4 rounded-md border border-dashed border-zinc-300 bg-zinc-50 px-6 py-10 text-center transition dark:border-zinc-700 dark:bg-zinc-950/40"
+                            className="flex min-h-48 cursor-pointer flex-col items-center justify-center gap-3 rounded-md border border-dashed border-zinc-300 bg-zinc-50 px-6 py-10 text-center transition hover:border-zinc-500 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-950/40 dark:hover:bg-zinc-900"
                         >
-                            <button
-                                type="button"
-                                onClick={() => inputRef.current?.click()}
-                                className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-800 outline-none hover:border-zinc-500 hover:bg-zinc-100 focus-visible:ring-2 focus-visible:ring-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800"
-                            >
+                            <span className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-800 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100">
                                 Drop images here or click to browse
-                            </button>
-                            {queuedImages.length > 0 ? (
-                                <div className="w-full max-w-2xl rounded-md border border-zinc-200 bg-white text-left dark:border-zinc-800 dark:bg-zinc-900">
-                                    <div className="border-b border-zinc-200 px-3 py-2 text-xs font-medium text-zinc-500 dark:border-zinc-800">
-                                        {queuedImages.length} queued
-                                    </div>
-                                    <ul className="max-h-52 overflow-y-auto">
-                                        {queuedImages.map((queuedImage) => (
-                                            <li
-                                                key={queuedImage.id}
-                                                className="flex items-center justify-between gap-3 border-b border-zinc-100 px-3 py-2 last:border-b-0 dark:border-zinc-800"
-                                            >
-                                                <div className="flex min-w-0 items-center gap-2">
-                                                    <QueuedFileStatusIcon
-                                                        status={
-                                                            queuedImage.status
-                                                        }
-                                                    />
-                                                    <div className="min-w-0">
-                                                        <p className="truncate text-sm font-medium text-zinc-800 dark:text-zinc-100">
-                                                            {
-                                                                queuedImage.file
-                                                                    .name
-                                                            }
-                                                        </p>
-                                                        <p className="text-xs text-zinc-500">
-                                                            {queuedImage.status}{' '}
-                                                            /{' '}
-                                                            {formatBytes(
-                                                                queuedImage.file
-                                                                    .size,
-                                                            )}
-                                                        </p>
-                                                    </div>
-                                                </div>
-                                                <button
-                                                    type="button"
-                                                    onClick={(event) => {
-                                                        event.stopPropagation();
-                                                        removeFile(
-                                                            queuedImage.id,
-                                                        );
-                                                    }}
-                                                    disabled={isUploading}
-                                                    className="rounded-md border border-zinc-300 px-2 py-1 text-xs text-zinc-600 outline-none hover:bg-zinc-100 focus-visible:ring-2 focus-visible:ring-zinc-500 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
-                                                >
-                                                    Remove
-                                                </button>
-                                            </li>
-                                        ))}
-                                    </ul>
+                            </span>
+                            <span className="max-w-md text-sm text-zinc-500 dark:text-zinc-400">
+                                Files are temporary. Download generated decks
+                                you want to keep.
+                            </span>
+                        </label>
+
+                        {queuedImages.length > 0 && (
+                            <div className="rounded-md border border-zinc-200 bg-white text-left dark:border-zinc-800 dark:bg-zinc-900">
+                                <div className="border-b border-zinc-200 px-3 py-2 text-xs font-medium text-zinc-500 dark:border-zinc-800">
+                                    {queuedImages.length} queued
                                 </div>
-                            ) : (
-                                <p className="max-w-md text-sm text-zinc-500 dark:text-zinc-400">
-                                    Files are temporary. Download generated
-                                    decks you want to keep.
-                                </p>
-                            )}
-                        </div>
+                                <ul className="max-h-52 overflow-y-auto">
+                                    {queuedImages.map((queuedImage) => (
+                                        <li
+                                            key={queuedImage.id}
+                                            className="flex items-center justify-between gap-3 border-b border-zinc-100 px-3 py-2 last:border-b-0 dark:border-zinc-800"
+                                        >
+                                            <div className="flex min-w-0 items-center gap-2">
+                                                <QueuedFileStatusIcon
+                                                    status={queuedImage.status}
+                                                />
+                                                <div className="min-w-0">
+                                                    <p className="truncate text-sm font-medium text-zinc-800 dark:text-zinc-100">
+                                                        {queuedImage.file.name}
+                                                    </p>
+                                                    <p className="text-xs text-zinc-500">
+                                                        {queuedImage.status} /{' '}
+                                                        {formatBytes(
+                                                            queuedImage.file
+                                                                .size,
+                                                        )}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={() =>
+                                                    removeFile(queuedImage.id)
+                                                }
+                                                disabled={isUploading}
+                                                className="rounded-md border border-zinc-300 px-2 py-1 text-xs text-zinc-600 outline-none hover:bg-zinc-100 focus-visible:ring-2 focus-visible:ring-zinc-500 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                                            >
+                                                Remove
+                                            </button>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        )}
 
                         {(clientError || serverError) && (
                             <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-200">
