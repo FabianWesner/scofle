@@ -6,12 +6,12 @@ import { AppShell } from '@/components/app-shell';
 import { store } from '@/routes/uploads';
 import type { RecentConversion } from '@/types/conversion';
 
-type HomeProps = {
+type HomeProps = Readonly<{
     uploadNonce: string;
     ttlHours: number;
     maxBatchUploads: number;
-    recentConversions: RecentConversion[];
-};
+    recentConversions: readonly RecentConversion[];
+}>;
 
 type QueueStatus = 'waiting' | 'uploading' | 'done' | 'failed';
 
@@ -39,6 +39,7 @@ export default function Home({
     const [nonce, setNonce] = useState(uploadNonce);
     const [queuedImages, setQueuedImages] = useState<QueuedImage[]>([]);
     const [isUploading, setIsUploading] = useState(false);
+    const submitLabel = uploadButtonLabel(isUploading, queuedImages.length);
 
     function selectFiles(files: FileList | null) {
         setClientError(null);
@@ -166,7 +167,7 @@ export default function Home({
                             Convert images to PowerPoint
                         </h1>
                         <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">
-                            PNG or JPEG. Up to 10 MB, up to 4096 px on the
+                            PNG or JPEG. Up to 8 MB, up to 4096 px on the
                             longest side.
                         </p>
                     </div>
@@ -186,25 +187,17 @@ export default function Home({
 
                     <div className="flex flex-1 flex-col gap-3 p-3">
                         <div
-                            role="button"
-                            tabIndex={0}
-                            onClick={() => inputRef.current?.click()}
-                            onKeyDown={(event) => {
-                                if (
-                                    event.key === 'Enter' ||
-                                    event.key === ' '
-                                ) {
-                                    event.preventDefault();
-                                    inputRef.current?.click();
-                                }
-                            }}
                             onDragOver={(event) => event.preventDefault()}
                             onDrop={onDrop}
-                            className="flex min-h-[24rem] flex-1 cursor-pointer flex-col items-center justify-center gap-4 rounded-md border border-dashed border-zinc-300 bg-zinc-50 px-6 py-10 text-center transition outline-none hover:border-zinc-500 hover:bg-white focus-visible:ring-2 focus-visible:ring-zinc-500 dark:border-zinc-700 dark:bg-zinc-950/40 dark:hover:bg-zinc-950"
+                            className="flex min-h-[24rem] flex-1 flex-col items-center justify-center gap-4 rounded-md border border-dashed border-zinc-300 bg-zinc-50 px-6 py-10 text-center transition dark:border-zinc-700 dark:bg-zinc-950/40"
                         >
-                            <div className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-800 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100">
+                            <button
+                                type="button"
+                                onClick={() => inputRef.current?.click()}
+                                className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-800 outline-none hover:border-zinc-500 hover:bg-zinc-100 focus-visible:ring-2 focus-visible:ring-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800"
+                            >
                                 Drop images here or click to browse
-                            </div>
+                            </button>
                             {queuedImages.length > 0 ? (
                                 <div className="w-full max-w-2xl rounded-md border border-zinc-200 bg-white text-left dark:border-zinc-800 dark:bg-zinc-900">
                                     <div className="border-b border-zinc-200 px-3 py-2 text-xs font-medium text-zinc-500 dark:border-zinc-800">
@@ -281,11 +274,7 @@ export default function Home({
                             disabled={isUploading}
                             className="inline-flex h-9 items-center justify-center rounded-md bg-zinc-950 px-4 text-sm font-medium text-white outline-none hover:bg-zinc-800 focus-visible:ring-2 focus-visible:ring-zinc-500 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-zinc-50 dark:text-zinc-950 dark:hover:bg-zinc-200"
                         >
-                            {isUploading
-                                ? 'Uploading...'
-                                : queuedImages.length > 0
-                                  ? `Convert ${queuedImages.length} image${queuedImages.length === 1 ? '' : 's'}`
-                                  : 'Convert images'}
+                            {submitLabel}
                         </button>
                     </div>
                 </form>
@@ -375,15 +364,8 @@ function firstError(error: string[] | string | undefined): string | null {
     return error?.[0] ?? null;
 }
 
-function QueuedFileStatusIcon({ status }: { status: QueueStatus }) {
-    const className =
-        status === 'uploading'
-            ? 'animate-pulse border-zinc-700 bg-zinc-700 dark:border-zinc-300 dark:bg-zinc-300'
-            : status === 'done'
-              ? 'border-zinc-950 bg-zinc-950 dark:border-zinc-50 dark:bg-zinc-50'
-              : status === 'failed'
-                ? 'border-red-500 bg-white dark:bg-zinc-900'
-                : 'border-zinc-400 bg-white dark:bg-zinc-900';
+function QueuedFileStatusIcon({ status }: Readonly<{ status: QueueStatus }>) {
+    const className = queuedStatusClassName(status);
 
     return (
         <span
@@ -392,6 +374,31 @@ function QueuedFileStatusIcon({ status }: { status: QueueStatus }) {
             className={`size-2.5 shrink-0 rounded-full border ${className}`}
         />
     );
+}
+
+function queuedStatusClassName(status: QueueStatus) {
+    switch (status) {
+        case 'uploading':
+            return 'animate-pulse border-zinc-700 bg-zinc-700 dark:border-zinc-300 dark:bg-zinc-300';
+        case 'done':
+            return 'border-zinc-950 bg-zinc-950 dark:border-zinc-50 dark:bg-zinc-50';
+        case 'failed':
+            return 'border-red-500 bg-white dark:bg-zinc-900';
+        default:
+            return 'border-zinc-400 bg-white dark:bg-zinc-900';
+    }
+}
+
+function uploadButtonLabel(isUploading: boolean, imageCount: number) {
+    if (isUploading) {
+        return 'Uploading...';
+    }
+
+    if (imageCount === 0) {
+        return 'Convert images';
+    }
+
+    return `Convert ${imageCount} image${imageCount === 1 ? '' : 's'}`;
 }
 
 function formatBytes(bytes: number) {

@@ -191,7 +191,7 @@ Every conversion route resolves the current `image2pptx_session` and aborts with
 
 - Upload area with drag-and-drop and multi-file picker.
 - Selected files appear as a local queue with waiting/uploading indicators before submit.
-- Copy: "PNG or JPEG. Up to 10 MB, up to 4096 px on the longest side."
+- Copy: "PNG or JPEG. Up to 8 MB, up to 4096 px on the longest side."
 - Copy: "Temporary files are deleted after {N} hour(s). Download files you want to keep."
 - Sidebar: recent Conversions in this session only.
 - Sidebar: delete-all action for temporary Conversions in this session.

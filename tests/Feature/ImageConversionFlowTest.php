@@ -21,7 +21,7 @@ test('home page renders upload shell with secure session cookie and headers', fu
             ->has('recentConversions', 0));
 
     $cookie = collect($response->headers->getCookies())
-        ->first(fn ($cookie) => $cookie->getName() === ImageSessionManager::CookieName);
+        ->first(fn ($cookie) => $cookie->getName() === ImageSessionManager::COOKIE_NAME);
 
     expect($cookie)->not->toBeNull()
         ->and($cookie->isHttpOnly())->toBeTrue()
@@ -36,7 +36,7 @@ test('valid png upload creates session conversion, stores private input, convert
     $nonce = $home->viewData('page')['props']['uploadNonce'];
     $cookie = imageSessionCookie($home);
 
-    $response = $this->withUnencryptedCookie(ImageSessionManager::CookieName, $cookie)->post('/uploads', [
+    $response = $this->withUnencryptedCookie(ImageSessionManager::COOKIE_NAME, $cookie)->post(route(UPLOADS_ROUTE), [
         'images' => [pngUpload('deck.png')],
         'nonce' => $nonce,
     ]);
@@ -62,7 +62,7 @@ test('valid png upload creates session conversion, stores private input, convert
         ->and($base.'/job.log')->toBeFile()
         ->and($base.'/meta.json')->toBeFile();
 
-    $this->withUnencryptedCookie(ImageSessionManager::CookieName, $cookie)->get(route('conversions.show', $conversion))
+    $this->withUnencryptedCookie(ImageSessionManager::COOKIE_NAME, $cookie)->get(route('conversions.show', $conversion))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('conversion')
@@ -82,7 +82,7 @@ test('pdf preview can be disabled while keeping pptx conversion ready', function
     $nonce = $home->viewData('page')['props']['uploadNonce'];
     $cookie = imageSessionCookie($home);
 
-    $response = $this->withUnencryptedCookie(ImageSessionManager::CookieName, $cookie)->post('/uploads', [
+    $response = $this->withUnencryptedCookie(ImageSessionManager::COOKIE_NAME, $cookie)->post(route(UPLOADS_ROUTE), [
         'images' => [pngUpload('deck.png')],
         'nonce' => $nonce,
     ]);
@@ -99,7 +99,7 @@ test('pdf preview can be disabled while keeping pptx conversion ready', function
         ->and(storage_path("app/private/tmp/sessions/{$conversion->session_id}/conversions/{$conversion->uuid}/attempts/1/output.pptx"))->toBeFile()
         ->and(storage_path("app/private/tmp/sessions/{$conversion->session_id}/conversions/{$conversion->uuid}/attempts/1/output.pdf"))->not->toBeFile();
 
-    $this->withUnencryptedCookie(ImageSessionManager::CookieName, $cookie)->get(route('conversions.show', $conversion))
+    $this->withUnencryptedCookie(ImageSessionManager::COOKIE_NAME, $cookie)->get(route('conversions.show', $conversion))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('conversion')
@@ -115,10 +115,10 @@ test('different sessions cannot open conversion URLs', function () {
     $home = $this->get('/');
     $nonce = $home->viewData('page')['props']['uploadNonce'];
     $cookie = imageSessionCookie($home);
-    $this->withUnencryptedCookie(ImageSessionManager::CookieName, $cookie)->post('/uploads', ['images' => [pngUpload()], 'nonce' => $nonce]);
+    $this->withUnencryptedCookie(ImageSessionManager::COOKIE_NAME, $cookie)->post(route(UPLOADS_ROUTE), ['images' => [pngUpload()], 'nonce' => $nonce]);
     $conversion = Conversion::query()->firstOrFail();
 
-    $this->withUnencryptedCookie(ImageSessionManager::CookieName, str_repeat('a', 80))
+    $this->withUnencryptedCookie(ImageSessionManager::COOKIE_NAME, str_repeat('a', 80))
         ->get(route('conversions.show', $conversion))
         ->assertNotFound();
 });

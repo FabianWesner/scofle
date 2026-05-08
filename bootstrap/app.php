@@ -5,7 +5,6 @@ use App\Http\Middleware\EnsureImageSession;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Services\ImageSessionManager;
 use Illuminate\Foundation\Application;
-use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets;
 
@@ -17,7 +16,7 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->encryptCookies(except: [
-            ImageSessionManager::CookieName,
+            ImageSessionManager::COOKIE_NAME,
         ]);
 
         $middleware->web(append: [
@@ -27,6 +26,5 @@ return Application::configure(basePath: dirname(__DIR__))
             AddSecurityHeaders::class,
         ]);
     })
-    ->withExceptions(function (Exceptions $exceptions): void {
-        //
-    })->create();
+    ->withExceptions()
+    ->create();

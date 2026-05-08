@@ -16,32 +16,42 @@ class WarmPowerPointModelsCommand extends Command
     {
         $python = (string) config('conversion.python');
         $bridge = (string) config('conversion.bridge');
+        $ready = $this->checkBridge($bridge)
+            && $this->checkPython($python)
+            && $this->checkPdfRenderer();
 
-        if (! is_file($bridge)) {
-            $this->error("Bridge wrapper not found: {$bridge}");
-
-            return self::FAILURE;
+        if ($ready && $this->option('check-only')) {
+            $this->info($this->checkOnlyMessage());
         }
 
-        if (! $this->checkPython($python)) {
-            return self::FAILURE;
+        if ($ready && ! $this->option('check-only')) {
+            $ready = $this->warm($python, $bridge);
         }
 
-        if ((bool) config('conversion.render_pdf') && ! $this->checkSoffice((string) config('conversion.soffice'))) {
-            return self::FAILURE;
+        return $ready ? self::SUCCESS : self::FAILURE;
+    }
+
+    private function checkBridge(string $bridge): bool
+    {
+        if (is_file($bridge)) {
+            return true;
         }
 
-        if ($this->option('check-only')) {
-            $message = (bool) config('conversion.render_pdf')
-                ? 'PowerPoint conversion and PDF preview prerequisites are present.'
-                : 'PowerPoint conversion prerequisites are present. PDF preview is disabled.';
+        $this->error("Bridge wrapper not found: {$bridge}");
 
-            $this->info($message);
+        return false;
+    }
 
-            return self::SUCCESS;
-        }
+    private function checkPdfRenderer(): bool
+    {
+        return ! (bool) config('conversion.render_pdf') || $this->checkSoffice((string) config('conversion.soffice'));
+    }
 
-        return $this->warm($python, $bridge) ? self::SUCCESS : self::FAILURE;
+    private function checkOnlyMessage(): string
+    {
+        return (bool) config('conversion.render_pdf')
+            ? 'PowerPoint conversion and PDF preview prerequisites are present.'
+            : 'PowerPoint conversion prerequisites are present. PDF preview is disabled.';
     }
 
     private function checkPython(string $python): bool
@@ -71,7 +81,10 @@ class WarmPowerPointModelsCommand extends Command
         $result->run();
         $versionOutput = trim($result->getOutput().' '.$result->getErrorOutput());
 
-        if ($result->getExitCode() !== 0 || ! preg_match('/(LibreOffice|soffice)\s+([7-9]|\d{2,})\./i', $versionOutput)) {
+        $versionIsSupported = preg_match('/(?:LibreOffice|soffice)\s+(\d+)\./i', $versionOutput, $matches)
+            && (int) $matches[1] >= 7;
+
+        if ($result->getExitCode() !== 0 || ! $versionIsSupported) {
             $this->error("LibreOffice 7+ is required; saw {$versionOutput}");
 
             return false;

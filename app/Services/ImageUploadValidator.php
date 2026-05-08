@@ -8,6 +8,14 @@ use Illuminate\Validation\ValidationException;
 
 class ImageUploadValidator
 {
+    private const MIME_JPEG = 'image/jpeg';
+
+    private const MIME_PNG = 'image/png';
+
+    private const JPEG_EXTENSIONS = ['jpg', 'jpeg'];
+
+    private const VALID_EXTENSIONS = ['png', 'jpg', 'jpeg'];
+
     /**
      * @return array{mime: 'image/png'|'image/jpeg', ext: 'png'|'jpg', bytes: int, pixels: int, width: int, height: int}
      */
@@ -22,7 +30,7 @@ class ImageUploadValidator
         $mime = $this->sniffMime($path, $errorKey);
         $this->rejectKnownUnsupported($path, $mime, $errorKey);
 
-        if (! in_array($mime, ['image/png', 'image/jpeg'], true)) {
+        if (! in_array($mime, [self::MIME_PNG, self::MIME_JPEG], true)) {
             $this->fail('Only PNG and JPEG images are accepted.', $errorKey);
         }
 
@@ -30,9 +38,9 @@ class ImageUploadValidator
         $canonicalExtension = $this->canonicalExtension($mime);
 
         if (
-            ! in_array($declaredExtension, ['png', 'jpg', 'jpeg'], true)
-            || ($mime === 'image/png' && $declaredExtension !== 'png')
-            || ($mime === 'image/jpeg' && ! in_array($declaredExtension, ['jpg', 'jpeg'], true))
+            ! in_array($declaredExtension, self::VALID_EXTENSIONS, true)
+            || ($mime === self::MIME_PNG && $declaredExtension !== 'png')
+            || ($mime === self::MIME_JPEG && ! in_array($declaredExtension, self::JPEG_EXTENSIONS, true))
         ) {
             $this->fail('File contents do not match the file extension.', $errorKey);
         }
@@ -112,8 +120,8 @@ class ImageUploadValidator
     private function canonicalExtension(string $mime): string
     {
         return match ($mime) {
-            'image/png' => 'png',
-            'image/jpeg' => 'jpg',
+            self::MIME_PNG => 'png',
+            self::MIME_JPEG => 'jpg',
             default => 'bin',
         };
     }

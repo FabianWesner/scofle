@@ -15,11 +15,11 @@ test('regenerate creates a new attempt on the same conversion', function () {
 
     $home = $this->get('/');
     $cookie = imageSessionCookie($home);
-    $this->withUnencryptedCookie(ImageSessionManager::CookieName, $cookie)
-        ->post('/uploads', ['images' => [pngUpload('first.png')], 'nonce' => $home->viewData('page')['props']['uploadNonce']]);
+    $this->withUnencryptedCookie(ImageSessionManager::COOKIE_NAME, $cookie)
+        ->post(route(UPLOADS_ROUTE), ['images' => [pngUpload('first.png')], 'nonce' => $home->viewData('page')['props']['uploadNonce']]);
     $conversion = Conversion::query()->firstOrFail();
 
-    $this->withUnencryptedCookie(ImageSessionManager::CookieName, $cookie)
+    $this->withUnencryptedCookie(ImageSessionManager::COOKIE_NAME, $cookie)
         ->post(route('conversions.regenerate', $conversion))
         ->assertRedirect(route('conversions.show', $conversion));
 
@@ -32,11 +32,11 @@ test('uploading another image creates a separate conversion in the same session'
 
     $firstHome = $this->get('/');
     $cookie = imageSessionCookie($firstHome);
-    $this->withUnencryptedCookie(ImageSessionManager::CookieName, $cookie)
-        ->post('/uploads', ['images' => [pngUpload('first.png')], 'nonce' => $firstHome->viewData('page')['props']['uploadNonce']]);
-    $secondHome = $this->withUnencryptedCookie(ImageSessionManager::CookieName, $cookie)->get('/');
-    $this->withUnencryptedCookie(ImageSessionManager::CookieName, $cookie)
-        ->post('/uploads', ['images' => [pngUpload('second.png')], 'nonce' => $secondHome->viewData('page')['props']['uploadNonce']]);
+    $this->withUnencryptedCookie(ImageSessionManager::COOKIE_NAME, $cookie)
+        ->post(route(UPLOADS_ROUTE), ['images' => [pngUpload('first.png')], 'nonce' => $firstHome->viewData('page')['props']['uploadNonce']]);
+    $secondHome = $this->withUnencryptedCookie(ImageSessionManager::COOKIE_NAME, $cookie)->get('/');
+    $this->withUnencryptedCookie(ImageSessionManager::COOKIE_NAME, $cookie)
+        ->post(route(UPLOADS_ROUTE), ['images' => [pngUpload('second.png')], 'nonce' => $secondHome->viewData('page')['props']['uploadNonce']]);
 
     expect(Conversion::query()->count())->toBe(2)
         ->and(Session::query()->count())->toBe(1)
@@ -48,12 +48,12 @@ test('delete conversion removes rows and private files', function () {
 
     $home = $this->get('/');
     $cookie = imageSessionCookie($home);
-    $this->withUnencryptedCookie(ImageSessionManager::CookieName, $cookie)
-        ->post('/uploads', ['images' => [pngUpload()], 'nonce' => $home->viewData('page')['props']['uploadNonce']]);
+    $this->withUnencryptedCookie(ImageSessionManager::COOKIE_NAME, $cookie)
+        ->post(route(UPLOADS_ROUTE), ['images' => [pngUpload()], 'nonce' => $home->viewData('page')['props']['uploadNonce']]);
     $conversion = Conversion::query()->firstOrFail();
     $path = storage_path("app/private/tmp/sessions/{$conversion->session_id}/conversions/{$conversion->uuid}");
 
-    $this->withUnencryptedCookie(ImageSessionManager::CookieName, $cookie)
+    $this->withUnencryptedCookie(ImageSessionManager::COOKIE_NAME, $cookie)
         ->delete(route('conversions.destroy', $conversion))
         ->assertRedirect(route('home'));
 
@@ -67,12 +67,12 @@ test('delete all conversions removes only current session rows and private files
 
     $home = $this->get('/');
     $cookie = imageSessionCookie($home);
-    $this->withUnencryptedCookie(ImageSessionManager::CookieName, $cookie)
-        ->post('/uploads', ['images' => [pngUpload('first.png')], 'nonce' => $home->viewData('page')['props']['uploadNonce']]);
+    $this->withUnencryptedCookie(ImageSessionManager::COOKIE_NAME, $cookie)
+        ->post(route(UPLOADS_ROUTE), ['images' => [pngUpload('first.png')], 'nonce' => $home->viewData('page')['props']['uploadNonce']]);
 
-    $secondHome = $this->withUnencryptedCookie(ImageSessionManager::CookieName, $cookie)->get('/');
-    $this->withUnencryptedCookie(ImageSessionManager::CookieName, $cookie)
-        ->post('/uploads', ['images' => [pngUpload('second.png')], 'nonce' => $secondHome->viewData('page')['props']['uploadNonce']]);
+    $secondHome = $this->withUnencryptedCookie(ImageSessionManager::COOKIE_NAME, $cookie)->get('/');
+    $this->withUnencryptedCookie(ImageSessionManager::COOKIE_NAME, $cookie)
+        ->post(route(UPLOADS_ROUTE), ['images' => [pngUpload('second.png')], 'nonce' => $secondHome->viewData('page')['props']['uploadNonce']]);
 
     $session = Session::query()->firstOrFail();
     $paths = $session->conversions()
@@ -86,7 +86,7 @@ test('delete all conversions removes only current session rows and private files
         ->has(Attempt::factory()->ready())
         ->create();
 
-    $this->withUnencryptedCookie(ImageSessionManager::CookieName, $cookie)
+    $this->withUnencryptedCookie(ImageSessionManager::COOKIE_NAME, $cookie)
         ->delete(route('conversions.destroy-all'))
         ->assertRedirect(route('home'));
 
@@ -138,9 +138,9 @@ test('session keeps at most configured conversions by evicting oldest evictable 
             ]);
     }
 
-    $nonce = $this->withUnencryptedCookie(ImageSessionManager::CookieName, $cookie)->get('/')->viewData('page')['props']['uploadNonce'];
-    $this->withUnencryptedCookie(ImageSessionManager::CookieName, $cookie)
-        ->post('/uploads', ['images' => [pngUpload()], 'nonce' => $nonce])
+    $nonce = $this->withUnencryptedCookie(ImageSessionManager::COOKIE_NAME, $cookie)->get('/')->viewData('page')['props']['uploadNonce'];
+    $this->withUnencryptedCookie(ImageSessionManager::COOKIE_NAME, $cookie)
+        ->post(route(UPLOADS_ROUTE), ['images' => [pngUpload()], 'nonce' => $nonce])
         ->assertRedirect();
 
     expect($session->fresh()->conversions()->count())->toBe(2)
@@ -154,7 +154,7 @@ test('multiple image upload creates queued conversions and dispatches one proces
     $cookie = imageSessionCookie($home);
     $nonce = $home->viewData('page')['props']['uploadNonce'];
 
-    $response = $this->withUnencryptedCookie(ImageSessionManager::CookieName, $cookie)->post('/uploads', [
+    $response = $this->withUnencryptedCookie(ImageSessionManager::COOKIE_NAME, $cookie)->post(route(UPLOADS_ROUTE), [
         'images' => [
             pngUpload('first.png'),
             pngUpload('second.png'),
@@ -172,7 +172,7 @@ test('multiple image upload creates queued conversions and dispatches one proces
 
     Queue::assertPushed(ProcessConversionQueueJob::class, 1);
 
-    $recent = $this->withUnencryptedCookie(ImageSessionManager::CookieName, $cookie)
+    $recent = $this->withUnencryptedCookie(ImageSessionManager::COOKIE_NAME, $cookie)
         ->get('/')
         ->viewData('page')['props']['recentConversions'];
 
@@ -187,9 +187,9 @@ test('json upload returns redirect and next nonce for client-side batch queues',
     $cookie = imageSessionCookie($home);
     $nonce = $home->viewData('page')['props']['uploadNonce'];
 
-    $this->withUnencryptedCookie(ImageSessionManager::CookieName, $cookie)
+    $this->withUnencryptedCookie(ImageSessionManager::COOKIE_NAME, $cookie)
         ->withHeader('Accept', 'application/json')
-        ->post('/uploads', ['images' => [pngUpload('first.png')], 'nonce' => $nonce])
+        ->post(route(UPLOADS_ROUTE), ['images' => [pngUpload('first.png')], 'nonce' => $nonce])
         ->assertCreated()
         ->assertJsonStructure(['redirect', 'uploadNonce']);
 
@@ -207,9 +207,9 @@ test('client-side batch can create multiple conversions with rotating upload non
     $nonce = $home->viewData('page')['props']['uploadNonce'];
 
     foreach (['first.png', 'second.png'] as $filename) {
-        $response = $this->withUnencryptedCookie(ImageSessionManager::CookieName, $cookie)
+        $response = $this->withUnencryptedCookie(ImageSessionManager::COOKIE_NAME, $cookie)
             ->withHeader('Accept', 'application/json')
-            ->post('/uploads', ['images' => [pngUpload($filename)], 'nonce' => $nonce])
+            ->post(route(UPLOADS_ROUTE), ['images' => [pngUpload($filename)], 'nonce' => $nonce])
             ->assertCreated();
 
         $nonce = $response->json('uploadNonce');

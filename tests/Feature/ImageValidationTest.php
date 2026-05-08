@@ -7,7 +7,7 @@ use Illuminate\Http\UploadedFile;
 test('extension and sniffed mime must agree', function () {
     $nonce = $this->get('/')->viewData('page')['props']['uploadNonce'];
 
-    $this->post('/uploads', [
+    $this->post(route(UPLOADS_ROUTE), [
         'images' => [UploadedFile::fake()->createWithContent('renamed.jpg', validPngBytes())],
         'nonce' => $nonce,
     ])->assertSessionHasErrors(['images.0' => 'File contents do not match the file extension.']);
@@ -18,7 +18,7 @@ test('extension and sniffed mime must agree', function () {
 test('known unsupported formats return specific validation messages', function (string $filename, string $contents, string $message) {
     $nonce = $this->get('/')->viewData('page')['props']['uploadNonce'];
 
-    $this->post('/uploads', [
+    $this->post(route(UPLOADS_ROUTE), [
         'images' => [UploadedFile::fake()->createWithContent($filename, $contents)],
         'nonce' => $nonce,
     ])->assertSessionHasErrors(['images.0' => $message]);
@@ -34,7 +34,7 @@ test('known unsupported formats return specific validation messages', function (
 test('image dimensions are capped before any conversion is created', function () {
     $nonce = $this->get('/')->viewData('page')['props']['uploadNonce'];
 
-    $this->post('/uploads', [
+    $this->post(route(UPLOADS_ROUTE), [
         'images' => [UploadedFile::fake()->image('too-wide.png', 4097, 100)],
         'nonce' => $nonce,
     ])->assertSessionHasErrors(['images.0' => 'Image dimensions are too large. The longest side must be 4096 px or less.']);
@@ -48,12 +48,12 @@ test('upload nonce is single use', function () {
     $home = $this->get('/');
     $nonce = $home->viewData('page')['props']['uploadNonce'];
     $cookie = imageSessionCookie($home);
-    $this->withUnencryptedCookie(ImageSessionManager::CookieName, $cookie)
-        ->post('/uploads', ['images' => [pngUpload()], 'nonce' => $nonce])
+    $this->withUnencryptedCookie(ImageSessionManager::COOKIE_NAME, $cookie)
+        ->post(route(UPLOADS_ROUTE), ['images' => [pngUpload()], 'nonce' => $nonce])
         ->assertRedirect();
 
-    $this->withUnencryptedCookie(ImageSessionManager::CookieName, $cookie)
-        ->post('/uploads', ['images' => [pngUpload('again.png')], 'nonce' => $nonce])
+    $this->withUnencryptedCookie(ImageSessionManager::COOKIE_NAME, $cookie)
+        ->post(route(UPLOADS_ROUTE), ['images' => [pngUpload('again.png')], 'nonce' => $nonce])
         ->assertSessionHasErrors(['images' => 'This upload was already submitted. Refresh and try again.']);
 
     expect(Conversion::query()->count())->toBe(1);
@@ -63,7 +63,7 @@ test('batch upload count is capped before conversion rows are created', function
     config(['conversion.max_batch_uploads' => 2]);
     $nonce = $this->get('/')->viewData('page')['props']['uploadNonce'];
 
-    $this->post('/uploads', [
+    $this->post(route(UPLOADS_ROUTE), [
         'images' => [
             pngUpload('first.png'),
             pngUpload('second.png'),

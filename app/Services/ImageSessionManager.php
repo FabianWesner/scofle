@@ -9,11 +9,11 @@ use Symfony\Component\HttpFoundation\Cookie;
 
 class ImageSessionManager
 {
-    public const CookieName = 'image2pptx_session';
+    public const COOKIE_NAME = 'image2pptx_session';
 
     public function resolve(Request $request): Session
     {
-        $token = $request->cookies->get(self::CookieName);
+        $token = $request->cookies->get(self::COOKIE_NAME);
 
         if (is_string($token) && $this->isValidToken($token)) {
             $session = Session::firstOrCreate(
@@ -36,7 +36,7 @@ class ImageSessionManager
     public function cookie(Session $session): Cookie
     {
         return new Cookie(
-            name: self::CookieName,
+            name: self::COOKIE_NAME,
             value: $session->token,
             expire: now()->addYears(10),
             path: '/',

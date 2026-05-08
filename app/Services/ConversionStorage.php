@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Exceptions\ConversionStorageException;
 use App\Models\Attempt;
 use App\Models\Conversion;
 use App\Models\Session;
@@ -16,14 +17,14 @@ class ConversionStorage
         $filename = $attempt->inputFilename();
 
         if ($filename === null) {
-            throw new \RuntimeException('Attempt input extension is missing.');
+            throw ConversionStorageException::missingInputExtension();
         }
 
         $path = $this->attemptRelativeDirectory($attempt).'/'.$filename;
         $sourcePath = $file->getRealPath();
 
         if (! is_string($sourcePath)) {
-            throw new \RuntimeException('Uploaded file is not readable.');
+            throw ConversionStorageException::unreadableUpload();
         }
 
         Storage::disk('local')->put($path, (string) file_get_contents($sourcePath));
@@ -37,7 +38,7 @@ class ConversionStorage
         $targetFilename = $target->inputFilename();
 
         if ($sourceFilename === null || $targetFilename === null) {
-            throw new \RuntimeException('Attempt input extension is missing.');
+            throw ConversionStorageException::missingInputExtension();
         }
 
         Storage::disk('local')->copy(

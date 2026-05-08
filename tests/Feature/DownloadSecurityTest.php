@@ -27,13 +27,13 @@ test('downloads require valid signatures, owning session, and expected headers',
     file_put_contents($dir.'/output.pdf', "%PDF-1.4\n%%EOF\n");
     app(ConversionStorage::class)->refreshConversionBytes($conversion);
 
-    $this->withUnencryptedCookie(ImageSessionManager::CookieName, $cookie)
+    $this->withUnencryptedCookie(ImageSessionManager::COOKIE_NAME, $cookie)
         ->get(route('downloads.show', [$attempt, 'pptx']))
         ->assertForbidden();
 
     $url = URL::temporarySignedRoute('downloads.show', now()->addHour(), ['attempt' => $attempt->id, 'kind' => 'pptx']);
 
-    $this->withUnencryptedCookie(ImageSessionManager::CookieName, $cookie)
+    $this->withUnencryptedCookie(ImageSessionManager::COOKIE_NAME, $cookie)
         ->get($url)
         ->assertOk()
         ->assertHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.presentationml.presentation')
@@ -42,13 +42,13 @@ test('downloads require valid signatures, owning session, and expected headers',
         ->assertHeader('X-Content-Type-Options', 'nosniff');
 
     $otherSession = Session::factory()->create();
-    $this->withUnencryptedCookie(ImageSessionManager::CookieName, $otherSession->token)
+    $this->withUnencryptedCookie(ImageSessionManager::COOKIE_NAME, $otherSession->token)
         ->get($url)
         ->assertNotFound();
 
     $inlinePdf = URL::temporarySignedRoute('downloads.show', now()->addHour(), ['attempt' => $attempt->id, 'kind' => 'pdf', 'inline' => 1]);
 
-    $this->withUnencryptedCookie(ImageSessionManager::CookieName, $cookie)
+    $this->withUnencryptedCookie(ImageSessionManager::COOKIE_NAME, $cookie)
         ->get($inlinePdf)
         ->assertOk()
         ->assertHeader('Content-Security-Policy', 'sandbox')
@@ -68,7 +68,7 @@ test('non-ready attempts cannot be downloaded', function () {
 
     $url = URL::temporarySignedRoute('downloads.show', now()->addHour(), ['attempt' => $attempt->id, 'kind' => 'pptx']);
 
-    $this->withUnencryptedCookie(ImageSessionManager::CookieName, $cookie)
+    $this->withUnencryptedCookie(ImageSessionManager::COOKIE_NAME, $cookie)
         ->get($url)
         ->assertNotFound();
 });

@@ -5,27 +5,29 @@ import { home } from '@/routes';
 import { destroyAll } from '@/routes/conversions';
 import type { RecentConversion } from '@/types/conversion';
 
-type AppShellProps = PropsWithChildren<{
-    recentConversions: RecentConversion[];
-}>;
+type AppShellProps = Readonly<
+    PropsWithChildren<{
+        recentConversions: readonly RecentConversion[];
+    }>
+>;
+
+function deleteAllTemporaryFiles() {
+    if (
+        !globalThis.confirm(
+            'Delete all temporary files in this browser session?',
+        )
+    ) {
+        return;
+    }
+
+    router.delete(destroyAll.url(), {
+        preserveScroll: true,
+    });
+}
 
 export function AppShell({ recentConversions, children }: AppShellProps) {
     const page = usePage();
     const currentPath = page.url.split('?')[0] ?? page.url;
-
-    function deleteAllTemporaryFiles() {
-        if (
-            !window.confirm(
-                'Delete all temporary files in this browser session?',
-            )
-        ) {
-            return;
-        }
-
-        router.delete(destroyAll.url(), {
-            preserveScroll: true,
-        });
-    }
 
     return (
         <div className="min-h-screen bg-zinc-100 text-zinc-950 dark:bg-zinc-950 dark:text-zinc-50">
@@ -118,24 +120,11 @@ export function AppShell({ recentConversions, children }: AppShellProps) {
     );
 }
 
-function StatusIcon({ status }: { status: RecentConversion['displayStatus'] }) {
-    const title =
-        status === 'pending'
-            ? 'waiting'
-            : status === 'running'
-              ? 'processing'
-              : status === 'failed'
-                ? 'failed'
-                : 'done';
-
-    const className =
-        status === 'pending'
-            ? 'border-zinc-400 bg-white dark:bg-zinc-900'
-            : status === 'running'
-              ? 'animate-pulse border-zinc-700 bg-zinc-700 dark:border-zinc-300 dark:bg-zinc-300'
-              : status === 'failed'
-                ? 'border-red-500 bg-white dark:bg-zinc-900'
-                : 'border-zinc-950 bg-zinc-950 dark:border-zinc-50 dark:bg-zinc-50';
+function StatusIcon({
+    status,
+}: Readonly<{ status: RecentConversion['displayStatus'] }>) {
+    const title = statusTitle(status);
+    const className = statusIconClassName(status);
 
     return (
         <span
@@ -144,4 +133,30 @@ function StatusIcon({ status }: { status: RecentConversion['displayStatus'] }) {
             className={`size-2.5 shrink-0 rounded-full border ${className}`}
         />
     );
+}
+
+function statusTitle(status: RecentConversion['displayStatus']) {
+    switch (status) {
+        case 'pending':
+            return 'waiting';
+        case 'running':
+            return 'processing';
+        case 'failed':
+            return 'failed';
+        default:
+            return 'done';
+    }
+}
+
+function statusIconClassName(status: RecentConversion['displayStatus']) {
+    switch (status) {
+        case 'pending':
+            return 'border-zinc-400 bg-white dark:bg-zinc-900';
+        case 'running':
+            return 'animate-pulse border-zinc-700 bg-zinc-700 dark:border-zinc-300 dark:bg-zinc-300';
+        case 'failed':
+            return 'border-red-500 bg-white dark:bg-zinc-900';
+        default:
+            return 'border-zinc-950 bg-zinc-950 dark:border-zinc-50 dark:bg-zinc-50';
+    }
 }

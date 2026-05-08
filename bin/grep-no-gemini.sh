@@ -6,7 +6,7 @@ VENV="$ROOT/storage/app/python-venv"
 
 TARGETS=("$ROOT/python")
 
-if [ -d "$VENV/lib" ]; then
+if [[ -d "$VENV/lib" ]]; then
   while IFS= read -r package_path; do
     TARGETS+=("$package_path")
   done < <(find "$VENV/lib" -type d -path '*/site-packages/px_image2pptx' -prune -print)

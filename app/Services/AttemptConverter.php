@@ -25,11 +25,7 @@ class AttemptConverter
             return;
         }
 
-        $attempt->forceFill([
-            'status' => AttemptStatus::Running,
-            'started_at' => now(),
-            'heartbeat_at' => now(),
-        ])->save();
+        $this->markRunning($attempt);
 
         $inputFilename = $attempt->inputFilename();
 
@@ -39,103 +35,21 @@ class AttemptConverter
             return;
         }
 
-        $attemptDir = $this->storage->attemptAbsoluteDirectory($attempt);
-        File::ensureDirectoryExists($attemptDir);
+        $paths = $this->attemptPaths($attempt, $inputFilename);
+        $bridge = $this->runBridge($attempt, $paths);
+        $failureCode = $this->conversionFailureCode($bridge, $paths['pptx']);
+        $this->writeLog($paths['log'], $bridge['output']);
 
-        $input = $this->storage->absolutePath($attempt, $inputFilename);
-        $pptx = $this->storage->absolutePath($attempt, 'output.pptx');
-        $pdf = $this->storage->absolutePath($attempt, 'output.pdf');
-        $log = $this->storage->absolutePath($attempt, 'job.log');
-
-        $bridge = $this->runProcess($attempt, [
-            config('conversion.python'),
-            config('conversion.bridge'),
-            $input,
-            '-o',
-            $pptx,
-            '--lang',
-            'auto',
-            '--max-inpaint-size',
-            (string) config('conversion.max_inpaint_size'),
-        ], $attemptDir);
-
-        $this->writeLog($log, $bridge['output']);
-
-        if ($bridge['timed_out']) {
-            $this->fail($attempt, FailureCode::BridgeTimeout);
+        if ($failureCode !== null) {
+            @unlink($paths['pptx']);
+            $this->fail($attempt, $failureCode);
 
             return;
         }
 
-        if ($bridge['exit_code'] === 137) {
-            $this->fail($attempt, FailureCode::Oom);
-
-            return;
-        }
-
-        if ($bridge['exit_code'] !== 0) {
-            $this->fail($attempt, FailureCode::BridgeError);
-
-            return;
-        }
-
-        if (! is_file($pptx) || filesize($pptx) === 0) {
-            @unlink($pptx);
-            $this->fail($attempt, FailureCode::EmptyOutput);
-
-            return;
-        }
-
-        if (! $this->isValidZip($pptx)) {
-            @unlink($pptx);
-            $this->fail($attempt, FailureCode::InvalidPptx);
-
-            return;
-        }
-
-        $renderPdf = (bool) config('conversion.render_pdf');
-        $pdfFailed = false;
-
-        if ($renderPdf) {
-            $pdfResult = $this->runProcess($attempt, [
-                config('conversion.soffice'),
-                '--headless',
-                '--convert-to',
-                'pdf',
-                '--outdir',
-                $attemptDir,
-                $pptx,
-            ], $attemptDir);
-
-            $this->writeLog($log, $bridge['output']."\n".$pdfResult['output']);
-
-            $pdfFailed = $pdfResult['exit_code'] !== 0 || ! is_file($pdf) || filesize($pdf) === 0;
-        } else {
-            $this->writeLog($log, $bridge['output']."\nPDF preview skipped; CONVERSION_RENDER_PDF=false.");
-        }
-
-        $pptxBytes = filesize($pptx);
-        $pdfBytes = (! $renderPdf || $pdfFailed) ? null : filesize($pdf);
-
-        $metaPath = $this->storage->absolutePath($attempt, 'meta.json');
-        File::put($metaPath, json_encode([
-            'byte_size' => $attempt->input_bytes,
-            'hash_sha256' => hash_file('sha256', $input) ?: null,
-            'lib_version' => 'px-image2pptx',
-            'lang' => 'auto',
-            'normalised_at' => now()->toISOString(),
-        ], JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR));
-
-        $attempt->forceFill([
-            'status' => AttemptStatus::Ready,
-            'pptx_bytes' => $pptxBytes,
-            'pdf_bytes' => $pdfBytes,
-            'pptx_sha256' => hash_file('sha256', $pptx) ?: null,
-            'failure_code' => $renderPdf && $pdfFailed ? FailureCode::PdfRender->value : null,
-            'failure_message' => $renderPdf && $pdfFailed ? FailureCode::PdfRender->message() : null,
-            'heartbeat_at' => now(),
-            'finished_at' => now(),
-        ])->save();
+        $pdfFailed = $this->renderPdf($attempt, $paths, $bridge['output']);
+        $this->writeMetadata($attempt, $paths);
+        $this->markReady($attempt, $paths, $pdfFailed);
 
         $this->storage->refreshConversionBytes($attempt->conversion);
 
@@ -149,6 +63,125 @@ class AttemptConverter
             'pptx_bytes' => $attempt->pptx_bytes,
             'pdf_bytes' => $attempt->pdf_bytes,
         ]);
+    }
+
+    private function markRunning(Attempt $attempt): void
+    {
+        $attempt->forceFill([
+            'status' => AttemptStatus::Running,
+            'started_at' => now(),
+            'heartbeat_at' => now(),
+        ])->save();
+    }
+
+    /**
+     * @return array{attemptDir: string, input: string, pptx: string, pdf: string, log: string}
+     */
+    private function attemptPaths(Attempt $attempt, string $inputFilename): array
+    {
+        $attemptDir = $this->storage->attemptAbsoluteDirectory($attempt);
+        File::ensureDirectoryExists($attemptDir);
+
+        return [
+            'attemptDir' => $attemptDir,
+            'input' => $this->storage->absolutePath($attempt, $inputFilename),
+            'pptx' => $this->storage->absolutePath($attempt, 'output.pptx'),
+            'pdf' => $this->storage->absolutePath($attempt, 'output.pdf'),
+            'log' => $this->storage->absolutePath($attempt, 'job.log'),
+        ];
+    }
+
+    /**
+     * @param  array{attemptDir: string, input: string, pptx: string, pdf: string, log: string}  $paths
+     * @return array{exit_code: int|null, timed_out: bool, output: string}
+     */
+    private function runBridge(Attempt $attempt, array $paths): array
+    {
+        return $this->runProcess($attempt, [
+            config('conversion.python'),
+            config('conversion.bridge'),
+            $paths['input'],
+            '-o',
+            $paths['pptx'],
+            '--lang',
+            'auto',
+            '--max-inpaint-size',
+            (string) config('conversion.max_inpaint_size'),
+        ], $paths['attemptDir']);
+    }
+
+    /**
+     * @param  array{exit_code: int|null, timed_out: bool, output: string}  $bridge
+     */
+    private function conversionFailureCode(array $bridge, string $pptx): ?FailureCode
+    {
+        return match (true) {
+            $bridge['timed_out'] => FailureCode::BridgeTimeout,
+            $bridge['exit_code'] === 137 => FailureCode::Oom,
+            $bridge['exit_code'] !== 0 => FailureCode::BridgeError,
+            ! is_file($pptx) || filesize($pptx) === 0 => FailureCode::EmptyOutput,
+            ! $this->isValidZip($pptx) => FailureCode::InvalidPptx,
+            default => null,
+        };
+    }
+
+    /**
+     * @param  array{attemptDir: string, input: string, pptx: string, pdf: string, log: string}  $paths
+     */
+    private function renderPdf(Attempt $attempt, array $paths, string $bridgeOutput): bool
+    {
+        if (! (bool) config('conversion.render_pdf')) {
+            $this->writeLog($paths['log'], $bridgeOutput."\nPDF preview skipped; CONVERSION_RENDER_PDF=false.");
+
+            return false;
+        }
+
+        $pdfResult = $this->runProcess($attempt, [
+            config('conversion.soffice'),
+            '--headless',
+            '--convert-to',
+            'pdf',
+            '--outdir',
+            $paths['attemptDir'],
+            $paths['pptx'],
+        ], $paths['attemptDir']);
+
+        $this->writeLog($paths['log'], $bridgeOutput."\n".$pdfResult['output']);
+
+        return $pdfResult['exit_code'] !== 0 || ! is_file($paths['pdf']) || filesize($paths['pdf']) === 0;
+    }
+
+    /**
+     * @param  array{attemptDir: string, input: string, pptx: string, pdf: string, log: string}  $paths
+     */
+    private function writeMetadata(Attempt $attempt, array $paths): void
+    {
+        File::put($this->storage->absolutePath($attempt, 'meta.json'), json_encode([
+            'byte_size' => $attempt->input_bytes,
+            'hash_sha256' => hash_file('sha256', $paths['input']) ?: null,
+            'lib_version' => 'px-image2pptx',
+            'lang' => 'auto',
+            'normalised_at' => now()->toISOString(),
+        ], JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR));
+    }
+
+    /**
+     * @param  array{attemptDir: string, input: string, pptx: string, pdf: string, log: string}  $paths
+     */
+    private function markReady(Attempt $attempt, array $paths, bool $pdfFailed): void
+    {
+        $renderPdf = (bool) config('conversion.render_pdf');
+
+        $attempt->forceFill([
+            'status' => AttemptStatus::Ready,
+            'pptx_bytes' => filesize($paths['pptx']),
+            'pdf_bytes' => (! $renderPdf || $pdfFailed) ? null : filesize($paths['pdf']),
+            'pptx_sha256' => hash_file('sha256', $paths['pptx']) ?: null,
+            'failure_code' => $renderPdf && $pdfFailed ? FailureCode::PdfRender->value : null,
+            'failure_message' => $renderPdf && $pdfFailed ? FailureCode::PdfRender->message() : null,
+            'heartbeat_at' => now(),
+            'finished_at' => now(),
+        ])->save();
     }
 
     /**

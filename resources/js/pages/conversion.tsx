@@ -12,7 +12,7 @@ export default function Conversion({
     attempts,
     selectedAttempt,
     ttlHours,
-}: ConversionPageProps) {
+}: Readonly<ConversionPageProps>) {
     const retention = ttlHours === 1 ? '1 hour' : `${ttlHours} hours`;
     const [pollExpired, setPollExpired] = useState(false);
     const [deleteOpen, setDeleteOpen] = useState(false);
@@ -34,10 +34,10 @@ export default function Conversion({
         }
 
         const startedAt = Date.now();
-        const timer = window.setInterval(() => {
+        const timer = globalThis.setInterval(() => {
             if (Date.now() - startedAt > 180_000) {
                 setPollExpired(true);
-                window.clearInterval(timer);
+                globalThis.clearInterval(timer);
 
                 return;
             }
@@ -47,7 +47,7 @@ export default function Conversion({
             });
         }, 2000);
 
-        return () => window.clearInterval(timer);
+        return () => globalThis.clearInterval(timer);
     }, [shouldPoll, pollExpired]);
 
     function submitRegenerate() {
@@ -173,7 +173,7 @@ export default function Conversion({
                                 {selectedAttempt.inputPreview ? (
                                     <img
                                         src={selectedAttempt.inputPreview}
-                                        alt="Uploaded source image"
+                                        alt="Uploaded source"
                                         className="h-full w-full object-contain"
                                     />
                                 ) : (
@@ -280,9 +280,9 @@ export default function Conversion({
 
 function OutputState({
     attempt,
-}: {
+}: Readonly<{
     attempt: ConversionPageProps['selectedAttempt'];
-}) {
+}>) {
     if (attempt.status === 'pending' || attempt.status === 'running') {
         return (
             <div className="m-3 flex min-h-[28rem] flex-1 flex-col items-center justify-center gap-3 rounded-md bg-zinc-100 p-6 text-center ring-1 ring-zinc-200 dark:bg-zinc-800 dark:ring-zinc-700">
@@ -340,17 +340,10 @@ function OutputState({
 
 function StatusBadge({
     status,
-}: {
+}: Readonly<{
     status: ConversionPageProps['selectedAttempt']['displayStatus'];
-}) {
-    const className =
-        status === 'ready'
-            ? 'bg-zinc-950 text-white dark:bg-zinc-50 dark:text-zinc-950'
-            : status === 'failed'
-              ? 'bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-200'
-              : status === 'partial'
-                ? 'bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-200'
-                : 'bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200';
+}>) {
+    const className = statusBadgeClassName(status);
 
     return (
         <span
@@ -359,6 +352,21 @@ function StatusBadge({
             {status}
         </span>
     );
+}
+
+function statusBadgeClassName(
+    status: ConversionPageProps['selectedAttempt']['displayStatus'],
+) {
+    switch (status) {
+        case 'ready':
+            return 'bg-zinc-950 text-white dark:bg-zinc-50 dark:text-zinc-950';
+        case 'failed':
+            return 'bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-200';
+        case 'partial':
+            return 'bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-200';
+        default:
+            return 'bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200';
+    }
 }
 
 function formatBytes(bytes: number | null) {

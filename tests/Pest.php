@@ -8,6 +8,8 @@ use Illuminate\Support\Facades\Queue;
 use Illuminate\Testing\TestResponse;
 use Tests\TestCase;
 
+const UPLOADS_ROUTE = 'uploads.store';
+
 pest()->extend(TestCase::class)
     ->use(RefreshDatabase::class)
     ->beforeEach(function (): void {
@@ -37,7 +39,7 @@ function pngUpload(string $name = 'slide.png'): UploadedFile
 function imageSessionCookie(TestResponse $response): string
 {
     $cookie = collect($response->headers->getCookies())
-        ->first(fn ($cookie) => $cookie->getName() === ImageSessionManager::CookieName);
+        ->first(fn ($cookie) => $cookie->getName() === ImageSessionManager::COOKIE_NAME);
 
     expect($cookie)->not->toBeNull();
 
@@ -89,7 +91,7 @@ file_put_contents($outdir.'/output.pdf', "%PDF-1.4\n%%EOF\n");
 exit(0);
 PHP);
 
-    chmod($soffice, 0755);
+    chmod($soffice, 0700);
 
     config([
         'conversion.python' => PHP_BINARY,

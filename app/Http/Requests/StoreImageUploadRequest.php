@@ -7,6 +7,8 @@ use Illuminate\Foundation\Http\FormRequest;
 
 class StoreImageUploadRequest extends FormRequest
 {
+    private const CHOOSE_IMAGES_MESSAGE = 'Choose one or more PNG or JPEG images.';
+
     /**
      * Determine if the user is authorized to make this request.
      */
@@ -32,20 +34,23 @@ class StoreImageUploadRequest extends FormRequest
             'images.*' => [
                 'required',
                 'file',
-                'max:'.(int) ceil(config('upload.max_bytes') / 1024),
+                'max:8000',
             ],
             'nonce' => ['required', 'string', 'size:64'],
         ];
     }
 
+    /**
+     * @return array<string, string>
+     */
     public function messages(): array
     {
         return [
-            'images.required' => 'Choose one or more PNG or JPEG images.',
-            'images.array' => 'Choose one or more PNG or JPEG images.',
+            'images.required' => self::CHOOSE_IMAGES_MESSAGE,
+            'images.array' => self::CHOOSE_IMAGES_MESSAGE,
             'images.max' => 'Upload at most '.config('conversion.max_batch_uploads').' images at once.',
-            'images.*.required' => 'Choose one or more PNG or JPEG images.',
-            'images.*.max' => 'One of the images is too large. Upload PNG or JPEG images up to 10 MB.',
+            'images.*.required' => self::CHOOSE_IMAGES_MESSAGE,
+            'images.*.max' => 'One of the images is too large. Upload PNG or JPEG images up to 8 MB.',
             'nonce.required' => 'This upload form expired. Refresh and try again.',
         ];
     }
